@@ -1,0 +1,23 @@
+schema: quality-gated-feature
+
+context: |
+  All feature work must follow OKF + OpenSpec + test-first workflow.
+  Unit tests are written before implementation.
+  E2E scenarios are designed before implementation and executed before archive when relevant.
+
+rules:
+  okf:
+    - Use knowledge/okf/templates/feature-knowledge.template.md as the body structure.
+    - Preserve PRD/spec provenance.
+    - Do not invent requirements.
+  proposal:
+    - Must reference okf-feature.md.
+    - Must include scope, non-goals, risks, and acceptance criteria.
+  test-cases:
+    - Must include unit, integration, and E2E classification.
+    - Every acceptance criterion must map to at least one test case.
+  tasks:
+    - Unit test tasks must appear before implementation tasks.
+  verification:
+    - Must include exact commands and results.
+    - Must state whether OKF was updated.
