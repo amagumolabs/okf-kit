@@ -18,7 +18,7 @@ Background reading, not needed in every session: `.okf/README.md` (what belongs
 in OKF, what the frontmatter states mean) and `docs/openspec-okf-workflow.md`
 (the full lifecycle and who enforces what).
 
-<!-- okf-kit:start v0.1.1 -->
+<!-- okf-kit:start v0.1.2 -->
 ## OKF Addendum
 
 Managed by okf-kit. Do not edit inside these markers - changes are overwritten on

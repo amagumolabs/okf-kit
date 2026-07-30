@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
   schedule:
     # Drift accumulates over weeks, so the audit runs weekly rather than on every
     # commit. A job that fails a pull request for drift nobody in it caused is a
@@ -54,3 +55,23 @@ jobs:
           node /tmp/kit/bin/okf.mjs index
           node /tmp/kit/bin/okf.mjs check
           npx --yes @fission-ai/openspec@1.6.0 schema validate okf-gated-feature
+
+  # A tag whose package.json disagrees with it makes the version meaningless,
+  # and the version is the one thing the kit asks teams to rely on when they pin
+  # and upgrade. The in-repo test covers package.json against the markers and the
+  # README; only CI can compare them against the tag being pushed.
+  release-guard:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: tag must match package.json version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag $GITHUB_REF_NAME points at a commit whose package.json says $pkg"
+            exit 1
+          fi
+          echo "tag $GITHUB_REF_NAME matches package.json $pkg"

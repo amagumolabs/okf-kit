@@ -661,6 +661,27 @@ projectTest('package.json files[] covers every installed payload path', () => {
   assert.deepEqual(missing, [], 'these paths are installed by okf init but would not ship in the package');
 });
 
+/**
+ * The version appears in four places and okf check compares three of them at
+ * install time. A tag pointing at a commit whose package.json disagrees makes the
+ * version meaningless - which is the one thing the kit asks teams to rely on.
+ */
+projectTest('the version agrees in package.json, both markers, and the README', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(KIT, 'package.json'), 'utf8')).version;
+
+  for (const name of ['CLAUDE.md', 'AGENTS.md']) {
+    const text = fs.readFileSync(path.join(KIT, name), 'utf8');
+    const m = /okf-kit:start v([\d.]+)/.exec(text);
+    assert.ok(m, `${name} has no versioned okf-kit marker`);
+    assert.equal(m[1], pkg, `${name} marker says v${m?.[1]}, package.json says ${pkg}`);
+  }
+
+  const readme = fs.readFileSync(path.join(KIT, 'README.md'), 'utf8');
+  const install = /openspec#v([\d.]+)/.exec(readme);
+  assert.ok(install, 'README has no versioned install command');
+  assert.equal(install[1], pkg, `README installs v${install?.[1]}, package.json says ${pkg}`);
+});
+
 projectTest('divergent CLAUDE.md and AGENTS.md blocks are an error', (root) => {
   install(KIT, root, KIT_VERSION, { mode: 'init' });
   writeIndex(root, { today: '2026-07-30' });
