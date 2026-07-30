@@ -22,14 +22,36 @@ mechanical gate against forgetting a step, but it is **not** a content check: a
 file containing one character satisfies it, and nothing verifies that
 `okf-link.md` points at an entry that exists on disk.
 
-Everything about content - a real entry behind the pointer, `BR-n` ids that are
-never reused, no leftover placeholders, `pending_changes` emptied before archive,
-evidence in the Rule Evidence table - is currently carried by schema
-instructions and rules, which agents follow but can also drift from.
+Content is enforced separately, by `okf check` - a dependency-free Node
+validator (`bin/okf.mjs`) that runs the same way for Claude, Codex, Cursor, a
+developer at a terminal, and CI:
 
-Closing that gap is the job of `okf check`, a tool-agnostic validator planned as
-the next step (see Known Limitations). Until it exists, treat the content rules
-as convention, not enforcement, and review `.okf/` diffs in PRs accordingly.
+| Check | Level |
+| --- | --- |
+| `okf-link` rows resolve to entries that exist on disk | error |
+| `okf-link` rows and the proposal's Capabilities section match exactly | error |
+| Entry frontmatter complete, enums valid, `title` equal to the file name | error |
+| `verified` without `verified_at` | error |
+| `pending_changes` referencing an archived or nonexistent change | error |
+| Duplicate `BR-n` id inside one entry | error |
+| Unfilled `<placeholder>`, empty table row, empty list item | error |
+| Test status outside `planned` / `skeleton` / `failing` / `passing` | error |
+| A `BR-n` cited by the specs with no Rule Evidence row, or a row with no reference or an invalid verdict | error |
+| `INDEX.md` out of sync with the entries; `needs-revision` missing from the ledger, or older than 30 days | error |
+| `config.yaml` rule containing an unquoted `: ` (YAML reads it as a mapping and the CLI silently drops every rule for that artifact) | error |
+| `verified` with empty `code_paths`; `failing` with no assertion message; template comment left in an entry | warning |
+
+`okf check --archive <change-id>` adds the pre-archive set: the verification pass
+must be recorded, `pending_changes` cleared, no entry left `unverified`, and no
+`skeleton` test archived without an owner in Known Gaps.
+
+The validator has its own fixture tests (`node test/run.mjs`), because a check
+that silently stops firing is worse than no check.
+
+What remains convention rather than enforcement is judgement: whether a business
+rule is written *well*, whether the evidence someone cited actually proves the
+rule, whether a stated reason is a real reason. Those are what `.okf/` diffs in
+code review are for.
 
 Mechanically, the OKF entries live outside the change directory, so the schema
 tracks them through a pointer table (`okf-link.md`) inside the change - one row
@@ -205,12 +227,13 @@ in the test-plan Known Gaps with a reason and an owner.
 
 Stated plainly rather than papered over:
 
-- **No content validator yet.** The gates check file existence only (section 1).
-  `okf check` - verifying that pointers resolve, frontmatter is valid, no
-  placeholders survive, `pending_changes` holds only active change ids, and the
-  evidence table is filled - is the next step.
-- **`.okf/INDEX.md` is maintained by hand** until `okf index` exists. Entry
-  frontmatter always wins over the index if the two disagree.
+- **The OpenSpec gates themselves still pass on an empty file.** `okf check`
+  closes this, but only where it is actually run - a developer who never invokes
+  it and never opens a PR can still start implementing behind three empty files.
+  CI is the backstop, not the gate.
+- **`okf check` cannot judge quality.** It confirms a `BR-n` has an evidence
+  reference; it cannot confirm the reference proves the rule, or that a stated
+  reason is a real reason. Read `.okf/` diffs in review.
 - **Drift from work outside OpenSpec is not detected.** Hotfixes, refactors, and
   dependency bumps do not open a change, so they can move code out from under a
   `verified` entry silently. `code_paths` is recorded now specifically so a later

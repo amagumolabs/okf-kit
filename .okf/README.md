@@ -4,6 +4,15 @@ Durable team knowledge as Markdown files with YAML frontmatter and source
 provenance. Most of it is written and kept in sync by AI agents as a side effect
 of the OpenSpec workflow, not by a developer remembering to update a wiki.
 
+Two commands keep it honest, and both run in CI:
+
+- `okf check` - pointers resolve to real entries, frontmatter is valid, no
+  placeholder survived, rule ids are unique, `pending_changes` holds only active
+  changes, cited `BR-n` ids have evidence, test statuses use the closed
+  vocabulary, and the needs-revision debt has not gone stale.
+- `okf check --archive <change-id>` - the stricter pre-archive set.
+- `okf index` - regenerates `INDEX.md` from entry frontmatter.
+
 ```text
 .okf/
   README.md
@@ -90,3 +99,8 @@ Check `INDEX.md` and the relevant folder for an entry that already covers the
 same capability, and enrich it. Name feature files after the **capability**, not
 after the change. Follow the template in `templates/`, and delete every section
 you have no real content for rather than leaving placeholders behind.
+
+Then run `okf index` and `okf check`. Both are cheap, and the second one catches
+exactly the mistakes that make a knowledge base quietly worthless: a pointer to
+a file that does not exist, a `verified` label with nothing behind it, a change
+archived while its knowledge was never checked.

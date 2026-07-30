@@ -390,6 +390,13 @@ artifacts:
 
       8. Record the outcome per capability in the Entry Outcome table.
 
+      9. Run `okf check --archive <change-id>` and record the result. It verifies
+         mechanically what this instruction asks for in prose: that every pointer
+         resolves, that no placeholder survived, that every cited `BR-n` has
+         evidence, that `pending_changes` no longer holds this change, and that no
+         `skeleton` test is being archived without an owner. Fix what it reports
+         rather than explaining it away.
+
       An entry whose `pending_changes` still contains this change id after
       archive is the exact failure this workflow exists to prevent. Treat step 5
       as non-optional.

@@ -22,6 +22,10 @@ context: |
   Before creating any OKF entry, test file, or doc artifact, check whether a template already exists
   (.okf/templates/, this schema's templates/, or an existing project convention) and follow it.
 
+  `okf check` enforces the mechanical half of these rules and `okf index` regenerates .okf/INDEX.md.
+  Run `okf check` after touching anything under .okf/, and `okf check --archive <change-id>` before archiving.
+  It is not advisory: fix what it reports rather than explaining it away.
+
   Everything else - when to explore, how often to loop propose/update, how deep a design goes -
   stays as flexible as the underlying OpenSpec skills already are.
 
@@ -66,4 +70,5 @@ rules:
     - 'Apply the verdicts honestly: okf-gap updates the entry, code-gap is a defect to fix in code (never sync the entry down to match a bug), conflict goes to a human.'
     - 'For every linked entry: set verified and verified_at, fill code_paths, remove this change id from pending_changes, append a Verification History row.'
     - Promote durable decisions from design.md into .okf/decisions/ before archive buries them, or record why not.
-    - Regenerate .okf/INDEX.md, and add a Needs Revision Ledger row for any entry left at needs-revision.
+    - Regenerate .okf/INDEX.md with `okf index`, and fill the Needs Revision Ledger note for any entry left at needs-revision.
+    - Run `okf check --archive <change-id>` and record its output; it must exit clean before archive readiness is claimed.

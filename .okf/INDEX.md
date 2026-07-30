@@ -2,15 +2,10 @@
 
 <!--
 GENERATED FILE - derived from the frontmatter of every file under `features/`
-and `decisions/`.
+and `decisions/`. Regenerate with `okf index`; do not edit by hand.
 
-Regenerate with `okf index` (see the okf-kit CLI). Until that command exists in
-this repo, agents append and update rows by hand, but the frontmatter of each
-entry always wins over this file: if the two disagree, fix this file, not the
-entry.
-
-Do not add commentary or extra columns here - `okf check` compares it against
-the entries.
+The Needs Revision Ledger keeps its "What A Human Must Decide" notes across
+regenerations - that column is the only hand-written content in this file.
 -->
 
 ## Features
@@ -25,12 +20,7 @@ the entries.
 
 ## Needs Revision Ledger
 
-<!--
-Every entry whose `verified` is `needs-revision`, with the date it entered that
-state and the change that caused it. This is the debt list: a row older than 30
-days is an error, not a warning - a knowledge base that disagrees with its own
-code and nobody looks at it is worse than no knowledge base.
--->
+<!-- The debt list. A row older than 30 days is an error, not a warning: a knowledge base that disagrees with its own code and nobody looks at is worse than none. -->
 
 | Capability | Since | Caused By Change | What A Human Must Decide |
 | --- | --- | --- | --- |

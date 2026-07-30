@@ -49,7 +49,7 @@ guardrail still holds: offer, never auto-capture.
      renumber, never reuse.
   4. Delete template sections you have no real content for. Never leave an empty
      table row or a `<placeholder>` behind.
-  5. Update `.okf/INDEX.md`.
+  5. Run `okf index`, then `okf check`.
 - If the user declines, keep exploring. Create nothing, and do not ask again
   until a different concrete capability emerges.
 
@@ -82,8 +82,12 @@ procedure. In short:
 4. Per entry: set `verified` and `verified_at`, fill `code_paths`, remove this
    change id from `pending_changes`, append a Verification History row.
 5. Promote durable decisions from `design.md` into `.okf/decisions/`.
-6. Regenerate `.okf/INDEX.md`; add a Needs Revision Ledger row for anything left
-   at `needs-revision`.
+6. Run `okf index` to regenerate `.okf/INDEX.md`, and fill the Needs Revision
+   Ledger note for anything left at `needs-revision`.
+7. Run `okf check --archive <change-id>`. It enforces the mechanical half of the
+   above - pointers resolve, no placeholders survive, every cited `BR-n` has
+   evidence, `pending_changes` is cleared, no `skeleton` test archived without an
+   owner. Fix what it reports; do not explain it away.
 
 If this pass has not happened, treat it like any other incomplete artifact:
 warn, and get explicit confirmation before archiving anyway. Do not skip it

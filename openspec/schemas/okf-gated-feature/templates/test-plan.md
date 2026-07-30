@@ -108,6 +108,11 @@ Quote the OKF rule id so the trail BR-n -> spec -> test -> code stays intact.
 
     openspec validate <change-id> --strict
 
+## OKF Validation
+
+    okf check
+    okf check --archive <change-id>    # before archiving
+
 # Test Change Rules
 
 - Pre-written tests are not changed to match the implementation.

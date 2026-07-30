@@ -42,8 +42,9 @@ change (say why in test-plan.md rather than leaving an empty group).
 - [ ] 6.3 Apply the verdicts: update the `.okf` entry where it was stale (`okf-gap`), fix the code where the rule was right (`code-gap`), ask a human on `conflict`
 - [ ] 6.4 For each linked entry: set `verified` and `verified_at`, fill `code_paths`, remove this change id from `pending_changes`
 - [ ] 6.5 Promote any durable decision from design.md to `.okf/decisions/`, or record why not
-- [ ] 6.6 Regenerate `.okf/INDEX.md`, and add a Needs Revision Ledger row if any entry ended at `needs-revision`
+- [ ] 6.6 Run `okf index` to regenerate `.okf/INDEX.md`, and fill the Needs Revision Ledger note if any entry ended at `needs-revision`
 
 ## 7. Archive Readiness
 
-- [ ] 7.1 Complete the Archive Readiness checklist in verification.md
+- [ ] 7.1 Run `okf check --archive <change-id>` and fix everything it reports
+- [ ] 7.2 Complete the Archive Readiness checklist in verification.md

@@ -1,0 +1,27 @@
+{
+  "name": "okf-kit",
+  "version": "2.0.0",
+  "private": true,
+  "description": "OpenSpec + OKF workflow kit: schema, templates, and a dependency-free validator",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "okf": "bin/okf.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "openspec/schemas",
+    ".okf/templates",
+    ".okf/README.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "check": "node bin/okf.mjs check",
+    "index": "node bin/okf.mjs index",
+    "test": "node test/run.mjs"
+  },
+  "license": "UNLICENSED"
+}

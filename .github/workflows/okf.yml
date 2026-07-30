@@ -1,0 +1,26 @@
+name: okf
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  okf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Fails when .okf/INDEX.md was hand-edited or left stale.
+      - name: okf index --check
+        run: node bin/okf.mjs index --check
+
+      # Entries, pointers, rule ids, evidence, test statuses, the debt ledger.
+      - name: okf check
+        run: node bin/okf.mjs check
+
+      - name: validator tests
+        run: node test/run.mjs

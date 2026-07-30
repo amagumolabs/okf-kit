@@ -15,6 +15,7 @@ check was not run, say so and explain the risk.
 | API E2E tests | not run |  |
 | Browser E2E tests | not run |  |
 | OKF verification | not run |  |
+| OKF validation (`okf check`) | not run |  |
 | Archive readiness | not ready |  |
 
 # OpenSpec Validation
@@ -66,6 +67,16 @@ Command:
 Result:
 
 <!-- Paste or summarize the actual result, or explain why browser E2E is not applicable. -->
+
+# OKF Validation
+
+Command:
+
+    okf check --archive <change-id>
+
+Result:
+
+<!-- Paste the actual output. Fix what it reports; do not explain it away. -->
 
 # Test Traceability Review
 
@@ -150,4 +161,5 @@ there is no such decision.
 - [ ] Every linked entry: `verified` set, `verified_at` set, `code_paths` filled, this change id removed from `pending_changes`
 - [ ] `needs-revision` entries (if any) recorded in the `.okf/INDEX.md` Needs Revision Ledger
 - [ ] Durable decisions promoted to `.okf/decisions/`, or explicitly skipped with a reason
+- [ ] `okf check --archive <change-id>` exits clean
 - [ ] Proof boundaries are honest and explicit
