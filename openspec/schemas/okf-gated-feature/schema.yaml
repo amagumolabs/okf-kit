@@ -390,7 +390,21 @@ artifacts:
 
       8. Record the outcome per capability in the Entry Outcome table.
 
-      9. Run `okf check --archive <change-id>` and record the result. It verifies
+      9. Validate every capability spec this change syncs into
+         `openspec/specs/`, not just the change itself:
+         `openspec validate <capability> --strict`. A change can be valid while
+         the baseline spec assembled from it is not - a delta spec needs neither
+         `## Purpose` nor `## Requirements`, and a baseline spec is rejected
+         without them. Validating only the change leaves the broken file behind
+         after the change directory is archived.
+
+      10. Record provenance by change id, not by path. A `sources` entry pointing
+         at `openspec/changes/<id>/design.md` dangles the moment the change is
+         archived and the directory is renamed. Write `change:<change-id>`
+         instead, and reserve paths for files that do not move (a PRD, a spec
+         under `openspec/specs/`).
+
+      11. Run `okf check --archive <change-id>` and record the result. It verifies
          mechanically what this instruction asks for in prose: that every pointer
          resolves, that no placeholder survived, that every cited `BR-n` has
          evidence, that `pending_changes` no longer holds this change, and that no

@@ -11,7 +11,7 @@ pending_changes:
 code_paths: []
 sources:
   - id: <source-id>
-    resource: <path to PRD/spec, the openspec change dir, or a short quote of the original request>
+    resource: <change:the-change-id, a path to a PRD/spec that does not move, a URL, or a short quote of the original request>
 linked_changes:
   - <openspec-change-id>
 generated:

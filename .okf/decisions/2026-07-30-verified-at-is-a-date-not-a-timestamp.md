@@ -10,7 +10,7 @@ affects_features:
   - okf-audit
 sources:
   - id: design
-    resource: openspec/changes/archive/2026-07-30-add-okf-audit/design.md
+    resource: change:add-okf-audit
 linked_changes:
   - add-okf-audit
 ---

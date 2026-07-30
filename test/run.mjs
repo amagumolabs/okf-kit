@@ -71,7 +71,9 @@ pending_changes: []
 code_paths: [src/auth/**]
 sources:
   - id: prd
-    resource: docs/M7-PRD.md
+    resource: docs/prd.md
+  - id: change
+    resource: change:add-mfa
 linked_changes:
   - add-mfa
 generated:
@@ -177,6 +179,7 @@ function scaffold(root) {
   fs.mkdirSync(path.join(root, '.okf', 'decisions'), { recursive: true });
   fs.copyFileSync(path.join(KIT, 'openspec', 'config.yaml'), pathEnsure(root, 'openspec/config.yaml'));
 
+  write(root, 'docs/prd.md', '# PRD\n\nAdmin accounts need a second factor.\n');
   write(root, '.okf/features/user-auth.md', ENTRY);
   write(root, 'openspec/changes/add-mfa/okf-link.md', OKF_LINK);
   write(root, 'openspec/changes/add-mfa/proposal.md', PROPOSAL);
@@ -308,6 +311,28 @@ test('"Not Applicable" without a reason is caught', (root) => {
     t.replace('- Unit: MFA rule', '- Not Applicable')
   );
   assertError(check(root), /gives no specific reason/, 'the escape hatch needs a reason');
+});
+
+test('a sources path that does not exist is caught', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) => t.replace('resource: docs/prd.md', 'resource: docs/gone.md'));
+  assertError(check(root), /references "docs\/gone.md", which does not exist/, 'dangling provenance looks like evidence');
+});
+
+test('a sources path under openspec/changes is caught', (root) => {
+  // Found by dogfooding: archiving renames that directory, so the reference is
+  // guaranteed to break later - it broke within minutes of being written.
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('resource: docs/prd.md', 'resource: openspec/changes/add-mfa/design.md')
+  );
+  assertError(check(root), /renamed at archive time/, 'a path under changes\/ must be rejected outright');
+});
+
+test('change: and quoted-text provenance are accepted', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('resource: docs/prd.md', "resource: 'Original request: admins need a second factor'")
+  );
+  const report = check(root);
+  assert.equal(find(report, /sources references/).length, 0, 'a quote and a change: ref are both valid provenance');
 });
 
 test('an escaped pipe inside a table cell does not split the row', (root) => {

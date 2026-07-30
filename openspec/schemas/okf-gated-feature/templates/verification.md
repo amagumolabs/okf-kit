@@ -28,6 +28,19 @@ Result:
 
 <!-- Paste or summarize the actual result. -->
 
+## Synced Capability Specs
+
+<!--
+A change can be valid while the baseline spec assembled from it is not: a delta
+spec needs neither `## Purpose` nor `## Requirements`, and a baseline spec is
+rejected without them. Validate every capability this change touches, or the
+broken file stays behind after the change directory is archived.
+-->
+
+| Capability | Command | Result |
+| --- | --- | --- |
+| <capability-name> | `openspec validate <capability-name> --strict` |  |
+
 # Unit Tests
 
 Command:
@@ -151,7 +164,8 @@ there is no such decision.
 
 # Archive Readiness
 
-- [ ] OpenSpec validation passed
+- [ ] OpenSpec validation passed for the change
+- [ ] `openspec validate <capability> --strict` passed for every spec synced into `openspec/specs/`
 - [ ] Tasks complete, or remaining items explicitly deferred
 - [ ] Unit test result recorded
 - [ ] Integration test result recorded

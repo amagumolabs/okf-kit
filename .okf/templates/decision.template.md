@@ -10,7 +10,7 @@ affects_features:
   - <capability-name>
 sources:
   - id: <source-id>
-    resource: <path to the design.md this was promoted from, or other source>
+    resource: <change:the-change-id this was promoted from - never a path under openspec/changes/, which is renamed at archive time>
 linked_changes:
   - <openspec-change-id>
 ---

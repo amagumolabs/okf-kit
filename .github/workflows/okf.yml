@@ -45,8 +45,9 @@ jobs:
       - name: packaged install smoke test
         run: |
           set -euo pipefail
+          # npm pack --pack-destination requires the directory to already exist.
+          mkdir -p /tmp/pack /tmp/kit /tmp/proj
           npm pack --pack-destination /tmp/pack
-          mkdir -p /tmp/kit /tmp/proj
           tar -xzf /tmp/pack/*.tgz -C /tmp/kit --strip-components=1
           cd /tmp/proj
           node /tmp/kit/bin/okf.mjs init
