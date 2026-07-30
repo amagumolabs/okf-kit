@@ -40,7 +40,10 @@ The system SHALL report a verified entry as `unauditable`, never as `current` or
 `stale`, whenever the comparison cannot be made: no declared `code_paths`, no
 `verified_at` to compare against, or no commit history for the declared paths.
 
-Implements: BR-3, BR-8
+When reporting why, the system SHALL distinguish a declared path that exists in
+the working tree but is not yet committed from one that matches nothing at all.
+
+Implements: BR-3, BR-8, BR-9
 
 #### Scenario: A verified entry declares no paths
 - **WHEN** a verified entry has an empty `code_paths` list
@@ -55,8 +58,16 @@ Implements: BR-3, BR-8
 - **THEN** the entry is reported `unauditable`
 
 #### Scenario: A declared path matches nothing in the repository
-- **WHEN** an entry declares a path that no longer exists in the repository
-- **THEN** the report says so for that path, because a vanished path usually means the code moved
+- **WHEN** an entry declares a path that matches no file, tracked or untracked
+- **THEN** the report says that path matches nothing, because a vanished path usually means the code moved
+
+#### Scenario: A declared path exists but is not committed yet
+- **WHEN** an entry declares a path whose files exist in the working tree but are not tracked by git
+- **THEN** the report says that path is not committed yet, and does not say it matches nothing, because verification precedes the commit that introduces a feature's files
+
+#### Scenario: A declared path matches only ignored files
+- **WHEN** an entry declares a path matching only files git is configured to ignore
+- **THEN** the report says that path matches nothing, because git will never track those files
 
 ### Requirement: Only verified, active entries are audited
 The system SHALL audit only entries whose `verified` is `verified` and whose

@@ -144,6 +144,9 @@ function runAudit(args) {
     for (const p of r.missingPaths) {
       console.log(`              ${' '.repeat(24)} declared path matches nothing: ${p}`);
     }
+    for (const p of r.untrackedPaths) {
+      console.log(`              ${' '.repeat(24)} declared path not committed yet: ${p}`);
+    }
   }
 
   const counts = rows.reduce((acc, r) => ({ ...acc, [r.verdict]: (acc[r.verdict] ?? 0) + 1 }), {});

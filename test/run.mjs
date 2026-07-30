@@ -707,7 +707,9 @@ function gitRepo(fn) {
     git(['commit', '-q', '-m', `touch ${rel}`], date);
   };
 
-  return { root, git, commit, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+  const ignore = (patterns, date) => commit('.gitignore', patterns.join('\n') + '\n', date);
+
+  return { root, git, commit, ignore, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
 }
 
 function entry(name, { verified = 'verified', verifiedAt = '2026-07-20', status = 'active', codePaths = [] } = {}) {
@@ -886,6 +888,45 @@ auditTest('UT-014 audit reports declared paths with no history as unauditable', 
   const r = byName(audit(root), 'user-auth');
   assert.ok(r, 'the entry must appear in the results');
   assert.equal(r.verdict, 'unauditable', 'no history means no comparison, not a clean bill of health');
+});
+
+auditTest('UT-015 audit reports an uncommitted path as not committed yet', ({ root, commit }) => {
+  // Exactly what this repository showed right after add-okf-audit was verified:
+  // verification precedes the commit that introduces the file.
+  commit('src/old.js', 'old\n', '2026-07-01');
+  write(root, 'src/brand-new.js', 'not committed yet\n');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['src/brand-new.js'] }));
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.deepEqual(r.untrackedPaths, ['src/brand-new.js'], 'a file waiting to be committed is not a vanished path');
+  assert.deepEqual(r.missingPaths, [], 'and it must not be reported as matching nothing');
+});
+
+auditTest('UT-016 audit treats ignored files as matching nothing', ({ root, commit, ignore }) => {
+  commit('src/app.js', 'app\n', '2026-07-01');
+  ignore(['build/'], '2026-07-01');
+  write(root, 'build/bundle.js', 'generated\n');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['build/**'] }));
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.deepEqual(r.missingPaths, ['build/**'], 'git will never track these, so the glob is wrong');
+  assert.deepEqual(r.untrackedPaths, [], 'ignored is not the same as pending a commit');
+});
+
+auditTest('UT-017 audit verdicts are unaffected by an uncommitted path', ({ root, commit }) => {
+  commit('src/committed.js', 'v1\n', '2026-07-25');
+  write(root, 'src/pending.js', 'not committed\n');
+  write(root, '.okf/features/user-auth.md',
+    entry('user-auth', { verifiedAt: '2026-07-01', codePaths: ['src/committed.js', 'src/pending.js'] }));
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.equal(r.verdict, 'stale', 'the committed path still decides the verdict');
+  assert.equal(r.triggeredBy, 'src/committed.js');
+  assert.deepEqual(r.untrackedPaths, ['src/pending.js']);
+  assert.deepEqual(r.missingPaths, [], 'this change alters wording, not judgement');
 });
 
 auditTest('UT-012 audit flags a declared path that matches nothing', ({ root, commit }) => {

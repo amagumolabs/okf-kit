@@ -13,6 +13,7 @@ sources:
     resource: 'Design conversation 2026-07-30, deferred phase 2: "code_paths da co du lieu, okf-audit chi la script ~20 dong: git log -1 --format=%cd tren code_paths so voi verified_at, cai nao code moi hon thi danh stale"'
 linked_changes:
   - add-okf-audit
+  - fix-audit-untracked-paths
 generated:
   by: claude-opus-5
   at: 2026-07-30T00:00:00Z
@@ -55,12 +56,13 @@ paths that entry claims to describe. It reports; it never edits knowledge.
 | BR-6 | The audit MUST NOT modify any entry, including its `verified` field. Downgrading status from commit history alone would let the tool decide knowledge is wrong without anyone reading either the knowledge or the code. | design-2026-07-30 |
 | BR-7 | Staleness MUST be judged from committed history only. Uncommitted working-tree changes are not drift; they are work in progress. | design-2026-07-30 |
 | BR-8 | Whenever a comparison cannot be made at all - no declared paths, no `verified_at` to compare against, or no commit history for the declared paths - the entry MUST be reported as unauditable rather than current. Generalises BR-3: the audit never converts an unknown into an assurance. | add-okf-audit verification pass |
+| BR-9 | A declared path that exists in the working tree but is not yet committed MUST be reported as not-yet-committed, not as matching nothing. Verification precedes the commit that introduces a feature's files, so every new capability passes through this state, and calling it a vanished path trains people to ignore the report. | change:fix-audit-untracked-paths |
 
 # Data Entities
 
 | Entity | Description | Important Fields Or States |
 | --- | --- | --- |
-| Audit result | One row per examined entry | capability, verified_at, newest commit date, verdict, the path that triggered it |
+| Audit result | One row per examined entry | capability, verified_at, newest commit date, verdict, the path that triggered it, paths matching nothing, paths not committed yet |
 | Audit verdict | Outcome of one entry | `current`, `stale`, `unauditable`, `skipped` |
 
 # Workflows
@@ -113,4 +115,5 @@ paths that entry claims to describe. It reports; it never edits knowledge.
 
 | Date | Change | Verified Status | Evidence / Notes |
 | --- | --- | --- | --- |
+| 2026-07-30 | fix-audit-untracked-paths | verified | BR-9 traced to lib/audit.mjs:162-163 and :78; BR-3 and BR-8 re-checked because this change edited the requirement citing them. Data Entities corrected to list the new result fields. |
 | 2026-07-30 | add-okf-audit | verified | All 8 rules traced to `lib/audit.mjs` with line references, see the change's verification.md. BR-8 was added during this pass after finding the audit reported `current` for comparisons it never made. |
