@@ -1,0 +1,92 @@
+# OKF (Open Knowledge Format)
+
+Durable team knowledge as Markdown files with YAML frontmatter and source
+provenance. Most of it is written and kept in sync by AI agents as a side effect
+of the OpenSpec workflow, not by a developer remembering to update a wiki.
+
+```text
+.okf/
+  README.md
+  INDEX.md                       # generated from frontmatter by `okf index`
+  templates/
+    feature.template.md
+    decision.template.md
+  features/
+    <capability-name>.md         # one per OpenSpec capability
+  decisions/
+    <YYYY-MM-DD>-<slug>.md       # promoted from design.md before archive buries it
+```
+
+## What belongs here, and what does not
+
+| | OKF (`.okf/features/`) | OpenSpec specs (`openspec/specs/`) |
+| --- | --- | --- |
+| Holds | Domain knowledge that outlives any single change: terms, business rules, actors, permissions, entities, workflows | Normative requirements and scenarios for a capability |
+| Lifetime | Permanent, edited in place | Requirement contract, assembled from change deltas |
+| Rules | Stated once, with a stable `BR-n` id | Quote the id (`Implements: BR-3`), never copy the rule text |
+
+The single ID space is what keeps the two from drifting: a rule lives in exactly
+one place, and specs, test cases, and verification evidence all point at it.
+
+There is no draft copy of this knowledge anywhere. A change points at the
+entries it touches through a small `okf-link.md` table inside
+`openspec/changes/<change-id>/`.
+
+## Frontmatter states
+
+`verified`:
+
+- `unverified` - captured from an explore session or written while a change was
+  proposed. Not checked against implemented code.
+- `verified` - checked against the implemented code during a verification pass
+  and found accurate.
+- `needs-revision` - checked and a genuine discrepancy remains that a human must
+  settle. Not the same as `unverified`, and it accrues as debt in `INDEX.md`.
+
+`pending_changes` is the honest part: an entry can be `verified` overall while a
+new change adds content to it that nobody has checked yet. Any non-empty
+`pending_changes` means treat this file as not fully trustworthy. The
+verification pass removes the change id.
+
+`code_paths` records where the feature actually lives, filled from the
+verification evidence table. It is what later makes automated drift detection
+possible (compare `git log` on those paths against `verified_at`).
+
+`criticality: high` (auth, permissions, money, customer data) means verification
+must be done with fresh context or signed off by a human - the agent that wrote
+the code should not be the only judge of whether the knowledge still matches it.
+
+## How entries get created and updated
+
+1. **Explore** - when a concrete feature target crystallizes, the agent asks
+   whether to save it. If confirmed, an entry is created or enriched as
+   `unverified`. See the OKF addendum in `CLAUDE.md` / `AGENTS.md`.
+2. **Propose** - an OKF entry is a hard prerequisite. If none exists, `propose`
+   creates it without re-asking; if one exists, `propose` enriches it and appends
+   the change id to `pending_changes`. It never changes `verified`.
+3. **Apply** - the linked entries are the primary knowledge source for
+   implementation, ahead of anything said in chat. If implementation reveals that
+   a rule must change, the entry (and the spec) is amended first, then the code
+   and tests follow - never the other way round.
+4. **Verify, before archive** - each linked entry is re-checked against the code
+   with `file:line` evidence, `verified` is set, `pending_changes` is cleared, and
+   `code_paths` is filled.
+
+## When OKF and the code disagree
+
+| Finding | Action |
+| --- | --- |
+| OKF is missing or stale, code is right, intent is clear | Update OKF directly, no need to ask. Show the diff. |
+| OKF is right, code is wrong or incomplete | Do **not** update OKF. This is a defect - record it and fix the code. |
+| Genuine semantic conflict, or the fix would change domain meaning for other features | Ask a human. Only set `needs-revision` when nobody is available to decide. |
+
+The middle row is the one that matters. If every disagreement were resolved by
+editing OKF, this directory would degrade into an AI-written summary of the code
+and could never catch a defect again.
+
+## Before creating anything here
+
+Check `INDEX.md` and the relevant folder for an entry that already covers the
+same capability, and enrich it. Name feature files after the **capability**, not
+after the change. Follow the template in `templates/`, and delete every section
+you have no real content for rather than leaving placeholders behind.

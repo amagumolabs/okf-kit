@@ -1,0 +1,56 @@
+---
+type: Decision
+title: <short decision title>
+description: <one sentence: what was decided>
+date: <iso-8601-date>
+status: accepted
+supersedes:
+superseded_by:
+affects_features:
+  - <capability-name>
+sources:
+  - id: <source-id>
+    resource: <path to the design.md this was promoted from, or other source>
+linked_changes:
+  - <openspec-change-id>
+---
+
+<!--
+HOW TO USE THIS TEMPLATE
+
+A decision entry is a point-in-time record. Unlike a feature entry it is NOT
+edited as reality changes - if the decision is revisited, write a new file and
+set `superseded_by` / `supersedes` on both.
+
+File name: `<YYYY-MM-DD>-<slug>.md`.
+
+`status`: `accepted` | `superseded` | `reversed`.
+
+Create one of these during the verification pass when `design.md` holds a
+decision that outlives its change - otherwise archiving buries it under
+`openspec/changes/archive/`. Do not promote decisions that only describe how
+this one change was built.
+
+Delete any section you have no real content for.
+-->
+
+# Decision
+
+<!-- One paragraph: what was decided, in the present tense. -->
+
+# Context
+
+<!-- What forced a decision. Constraints that were real at the time. -->
+
+# Alternatives Considered
+
+| Option | Why Not Chosen |
+| --- | --- |
+
+# Consequences
+
+<!-- What this makes easy, what it makes hard, what it locks in. -->
+
+# Revisit When
+
+<!-- The concrete signal that should make someone reopen this. Omit if none. -->

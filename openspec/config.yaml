@@ -1,23 +1,69 @@
-schema: quality-gated-feature
+schema: okf-gated-feature
 
 context: |
-  All feature work must follow OKF + OpenSpec + test-first workflow.
-  Unit tests are written before implementation.
-  E2E scenarios are designed before implementation and executed before archive when relevant.
+  All feature work follows the OKF + OpenSpec + test-first workflow.
+
+  Durable knowledge lives in exactly one place per capability:
+  .okf/features/<capability-name>.md - named after the capability, never after the change.
+  Never duplicate its content into a change directory; a change points at it via okf-link.md.
+
+  Division of labour: OKF holds domain knowledge (terms, business rules with stable BR-n ids,
+  actors, permissions, entities, workflows). OpenSpec specs hold requirements and scenarios,
+  and CITE the BR-n ids instead of restating rules - two copies of one sentence drift, a citation cannot.
+
+  Two things are mandatory gates, not suggestions: a test-plan must exist before implementation,
+  and an OKF entry (even if unverified) must exist before implementation.
+
+  One meta-rule covers every escape hatch in this schema: never skip a file and never leave a
+  section blank - state a specific reason instead. test-plan says "Not Applicable because ...",
+  design says "Not required because ...", okf-link says "no domain knowledge - ...".
+  A reason that does not name what makes it true is not a reason.
+
+  Before creating any OKF entry, test file, or doc artifact, check whether a template already exists
+  (.okf/templates/, this schema's templates/, or an existing project convention) and follow it.
+
+  Everything else - when to explore, how often to loop propose/update, how deep a design goes -
+  stays as flexible as the underlying OpenSpec skills already are.
 
 rules:
-  okf:
-    - Use knowledge/okf/templates/feature-knowledge.template.md as the body structure.
-    - Preserve PRD/spec provenance.
-    - Do not invent requirements.
+  okf-link:
+    - Name each entry after the OpenSpec capability, never after the change - add-user-auth and fix-auth-mfa are both the user-auth capability.
+    - Search .okf/INDEX.md and .okf/features/ for an existing entry before creating one; enrich rather than create a near-duplicate.
+    - Use .okf/templates/feature.template.md as the body structure, and delete every section you have no real content for.
+    - New entries start as verified=unverified with code_paths empty.
+    - Append this change id to pending_changes and linked_changes; never touch verified or verified_at here.
+    - Give every new business rule the next BR-n id in that file; never renumber, never reuse, never delete a rule (mark it deprecated in <change-id>).
+    - One row per capability in the proposal's Capabilities section; a capability with no domain knowledge gets "no domain knowledge - <reason>" instead of a path.
+    - Preserve provenance (source PRD/spec, explore session, or a short quote of the original request).
+    - Do not invent requirements - inferred details go under Assumptions, blockers under Open Questions.
   proposal:
-    - Must reference okf-feature.md.
-    - Must include scope, non-goals, risks, and acceptance criteria.
+    - Read the linked OKF entries before writing, and cite BR-n ids rather than restating rules.
+    - Must include scope, non-goals, risks, and testable acceptance criteria.
+    - Must reconcile okf-link.md so its rows and the Capabilities section list exactly the same capabilities.
+  specs:
+    - 'Add "Implements: BR-n" to any requirement that exists because of a domain rule, and leave the rule''s wording in the OKF entry only.'
+    - A rule discovered while writing specs goes into the OKF entry first with a new BR-n, then gets cited.
+  design:
+    - 'Always create the file. If none of the triggers apply, its entire content is one line: "Not required because <specific reason>."'
+    - '"Not required because it is small" is not a reason - name what makes it small.'
+    - Flag any decision that outlives this change so the verification pass can promote it to .okf/decisions/.
   test-cases:
-    - Must include unit, integration, and E2E classification.
-    - Every acceptance criterion must map to at least one test case.
+    - Must classify cases as unit, integration, or E2E.
+    - Every acceptance criterion, every spec scenario, and every BR-n touched must map to at least one test case, or appear in Not Applicable with a specific reason and an approver.
+  test-plan:
+    - Must exist before implementation - if genuinely not testable, write "Not Applicable because <specific reason>" rather than skipping the file.
+    - 'Use only these status values: planned, skeleton, failing, passing.'
+    - Unit tests for business rules must reach failing (assertion failure, not a compile error) before their implementation task starts; Initial Status records the actual failure message.
+    - Contract stubs declare signatures only and throw "not implemented" - a stub containing logic breaks test-first at step one.
+    - Integration and E2E tests may start as skeleton using the runner's own pending mechanism, but every skeleton or planned row left at archive time must appear in Known Gaps with a reason and an owner.
   tasks:
-    - Unit test tasks must appear before implementation tasks.
+    - 'Keep the template''s group order: contract stubs, red unit tests, implementation, integration, E2E, verification and OKF pass, archive readiness.'
+    - Unit test tasks must appear before the implementation tasks they cover.
+    - The verification group must contain the concrete OKF pass work, not a single boilerplate line.
   verification:
-    - Must include exact commands and results.
-    - Must state whether OKF was updated.
+    - Must include exact commands and real results.
+    - Must fill the Rule Evidence table with a real file:line or test name for every BR-n touched - a checkbox is not evidence.
+    - 'Apply the verdicts honestly: okf-gap updates the entry, code-gap is a defect to fix in code (never sync the entry down to match a bug), conflict goes to a human.'
+    - 'For every linked entry: set verified and verified_at, fill code_paths, remove this change id from pending_changes, append a Verification History row.'
+    - Promote durable decisions from design.md into .okf/decisions/ before archive buries them, or record why not.
+    - Regenerate .okf/INDEX.md, and add a Needs Revision Ledger row for any entry left at needs-revision.

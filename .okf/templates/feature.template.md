@@ -1,0 +1,142 @@
+---
+type: Feature Knowledge
+title: <capability-name>
+description: <one sentence summary>
+status: active
+verified: unverified
+verified_at:
+criticality: normal
+pending_changes:
+  - <openspec-change-id>
+code_paths: []
+sources:
+  - id: <source-id>
+    resource: <path to PRD/spec, the openspec change dir, or a short quote of the original request>
+linked_changes:
+  - <openspec-change-id>
+generated:
+  by: <agent-or-person>
+  at: <iso-8601-timestamp>
+---
+
+<!--
+HOW TO USE THIS TEMPLATE
+
+1. The file name MUST equal the OpenSpec capability name (the folder name under
+   `openspec/specs/<capability>/`), never the change name. One file per
+   capability. Enrich the existing file instead of creating a near-duplicate.
+
+2. DELETE every section you have no real content for. Never leave an empty table
+   row, a bare `-`, or a `<placeholder>` behind. An empty section makes this file
+   look like it holds knowledge when it does not, which is worse than not having
+   the section at all. `okf check` fails on leftover placeholders.
+
+3. Business rules carry stable IDs (`BR-1`, `BR-2`, ...). These IDs are quoted
+   from OpenSpec specs, test cases, and verification evidence, so:
+   - Never renumber and never reuse an ID.
+   - One shared ID counter per file, used by both the Business Rules table and
+     the Permissions table.
+   - A rule that no longer applies STAYS in place, marked
+     `(deprecated in <change-id>)`. Deleting it creates dangling references from
+     archived changes.
+
+4. Frontmatter meaning:
+   - `status`: `active` | `deprecated`
+   - `verified`: `unverified` | `verified` | `needs-revision`
+   - `verified_at`: date of the last successful verification pass
+   - `criticality`: `normal` | `high`. Use `high` for auth, permissions, money,
+     or customer data. A `high` entry must be verified with fresh context (an
+     agent that did not write the implementation) or signed off by a human
+     reviewer.
+   - `pending_changes`: change ids whose content has NOT yet been checked against
+     code. Non-empty means this file is not fully trustworthy yet. The
+     verification pass removes the id.
+   - `code_paths`: globs where this feature actually lives. Filled during the
+     verification pass from the evidence table in `verification.md`.
+
+5. Keep this file about domain and product behavior. Requirements and scenarios
+   belong in OpenSpec specs, which quote the `BR-n` IDs from here.
+-->
+
+# Summary
+
+<!-- 2-5 sentences of durable feature knowledge. Domain and product behavior, not implementation. -->
+
+# Domain Terms
+
+<!-- Terms that product, engineering, QA, and AI agents must read the same way. -->
+
+| Term | Meaning | Source |
+| --- | --- | --- |
+
+# Actors And Roles
+
+<!-- Users, systems, or services that participate in this feature. -->
+
+| Actor | Role In Feature | Notes |
+| --- | --- | --- |
+
+# Business Rules
+
+<!--
+Stable rules the implementation must obey. Use MUST/SHALL when the source is
+definitive. IDs are permanent - see rule 3 in the header comment.
+-->
+
+| ID | Rule | Source |
+| --- | --- | --- |
+
+# Permissions And Access Control
+
+<!-- Who can do what, under which conditions. IDs continue the same BR counter. -->
+
+| ID | Action | Allowed Actor | Denied Actor | Rule |
+| --- | --- | --- | --- | --- |
+
+# Data Entities
+
+<!-- Durable domain entities and important fields. Do not invent schemas the source does not define. -->
+
+| Entity | Description | Important Fields Or States |
+| --- | --- | --- |
+
+# Workflows
+
+<!-- Behavior-level workflows. Reference BR-n where a step is governed by a rule. -->
+
+## Primary Workflow
+
+## Alternative Or Failure Workflows
+
+# External Dependencies
+
+<!-- External systems, APIs, providers, documents, or policies this feature depends on. -->
+
+| Dependency | Purpose | Reliability Or Ownership Notes |
+| --- | --- | --- |
+
+# Risks And Compliance Constraints
+
+<!-- Legal, privacy, security, financial, operational, or product risks. -->
+
+| Risk Or Constraint | Impact | Mitigation Or Handling |
+| --- | --- | --- |
+
+# Assumptions
+
+<!-- Assumptions are not facts. Keep them explicit until confirmed. -->
+
+# Open Questions
+
+<!-- Questions that block or materially affect scope, behavior, tests, or implementation. -->
+
+# Verification History
+
+<!--
+Appended by the verification pass before archive, every time `verified` is
+(re)confirmed. Keep the evidence column concrete: file:line, test name, or the
+specific discrepancy found.
+-->
+
+| Date | Change | Verified Status | Evidence / Notes |
+| --- | --- | --- | --- |
