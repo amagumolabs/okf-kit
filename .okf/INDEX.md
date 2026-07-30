@@ -12,11 +12,13 @@ regenerations - that column is the only hand-written content in this file.
 
 | Capability | Verified | Verified At | Pending Changes | Criticality | Status |
 | --- | --- | --- | --- | --- | --- |
+| [okf-audit](features/okf-audit.md) | verified | 2026-07-30 | - | normal | active |
 
 ## Decisions
 
 | Decision | Date | Status | Affects |
 | --- | --- | --- | --- |
+| [verified_at is a date, and comparisons against it are date comparisons](decisions/2026-07-30-verified-at-is-a-date-not-a-timestamp.md) | 2026-07-30 | accepted | okf-audit |
 
 ## Needs Revision Ledger
 
