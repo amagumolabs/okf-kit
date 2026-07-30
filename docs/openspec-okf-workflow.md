@@ -242,11 +242,19 @@ Stated plainly rather than papered over:
 - **`okf check` cannot judge quality.** It confirms a `BR-n` has an evidence
   reference; it cannot confirm the reference proves the rule, or that a stated
   reason is a real reason. Read `.okf/` diffs in review.
-- **Drift from work outside OpenSpec is not detected.** Hotfixes, refactors, and
-  dependency bumps do not open a change, so they can move code out from under a
-  `verified` entry silently. `code_paths` is recorded now specifically so a later
-  audit can compare `git log` on those paths against `verified_at` - the audit
-  itself does not exist yet.
+- **Drift detection needs an entry to declare its code.** `okf audit` compares
+  `git log` on each entry's `code_paths` against its `verified_at`, so hotfixes and
+  refactors that never opened a change do become visible - but only for entries
+  that declare paths. An entry with empty `code_paths` is reported `unauditable`
+  rather than clean, which makes the blind spot visible instead of hiding it.
+- **The audit has a one-day blind spot and trusts clone depth.** A commit made
+  later on the verification date is invisible (a deliberate trade, see
+  `.okf/decisions/2026-07-30-verified-at-is-a-date-not-a-timestamp.md`), and a
+  shallow CI clone can truncate the history the audit reads.
+- **Nothing acts on drift automatically.** The audit reports; a human decides
+  whether the knowledge actually became wrong. Downgrading `verified` from commit
+  history alone would let a tool declare knowledge broken without anyone reading
+  either the knowledge or the code.
 - **Brownfield repos start empty.** Entries appear lazily, as changes touch each
   capability. There is no upfront backfill, on purpose: a mass-generated set of
   `unverified` entries nobody reads would look like coverage without being it.

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import { audit } from '../lib/audit.mjs';
 import { check } from '../lib/check.mjs';
 import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
 import { install } from '../lib/install.mjs';
@@ -16,6 +17,7 @@ Usage:
   okf init    [--root <dir>] [--dry-run]
   okf upgrade [--root <dir>] [--dry-run] [--force]
   okf check   [--archive <change-id>] [--root <dir>] [--json]
+  okf audit   [--root <dir>] [--json]
   okf index   [--check] [--root <dir>]
 
 Commands:
@@ -31,6 +33,11 @@ Commands:
             --archive <change-id> adds the pre-archive checks: the verification
             pass recorded, pending_changes cleared, no skeleton test left
             without an owner.
+
+  audit     Report entries whose declared code_paths have commits newer than
+            their verified_at, so drift from work that never opened a change
+            becomes visible. Reports only; never edits knowledge. Exits non-zero
+            when anything is stale. Meant as a scheduled job, not a commit gate.
 
   index     Regenerate .okf/INDEX.md from entry frontmatter.
             --check verifies it is up to date without writing (for CI).
@@ -103,6 +110,51 @@ function runCheck(args) {
     console.log(`"${args.flags.archive}" is ready to archive as far as OKF is concerned.`);
   }
   return errors.length ? 1 : 0;
+}
+
+function runAudit(args) {
+  const root = findRoot(args.root);
+  const result = audit(root);
+
+  if (args.flags.json) {
+    process.stdout.write(JSON.stringify({ root, ...result }, null, 2) + '\n');
+    return result.ok && !result.stale ? 0 : 1;
+  }
+
+  if (!result.ok) {
+    console.error(`okf audit: ${result.reason}`);
+    return 1;
+  }
+
+  const order = { stale: 0, unauditable: 1, current: 2, skipped: 3 };
+  const rows = [...result.results].sort(
+    (a, b) => order[a.verdict] - order[b.verdict] || a.capability.localeCompare(b.capability)
+  );
+
+  for (const r of rows) {
+    const detail =
+      r.verdict === 'stale'
+        ? `verified ${r.verifiedAt}, but ${r.triggeredBy} changed ${r.newestCommit}`
+        : r.verdict === 'unauditable'
+          ? 'verified, but declares no code_paths - drift cannot be detected'
+          : r.verdict === 'skipped'
+            ? r.note
+            : `verified ${r.verifiedAt}, newest commit ${r.newestCommit ?? 'none'}`;
+    console.log(`  ${r.verdict.padEnd(11)} ${r.capability.padEnd(24)} ${detail}`);
+    for (const p of r.missingPaths) {
+      console.log(`              ${' '.repeat(24)} declared path matches nothing: ${p}`);
+    }
+  }
+
+  const counts = rows.reduce((acc, r) => ({ ...acc, [r.verdict]: (acc[r.verdict] ?? 0) + 1 }), {});
+  console.log(
+    `\nokf audit: ${counts.stale ?? 0} stale, ${counts.unauditable ?? 0} unauditable, ` +
+      `${counts.current ?? 0} current, ${counts.skipped ?? 0} skipped`
+  );
+  if (result.stale) {
+    console.log('Stale means the code moved after the knowledge was checked - re-verify inside a change.');
+  }
+  return result.stale ? 1 : 0;
 }
 
 function runIndex(args) {
@@ -206,6 +258,8 @@ function main() {
       return runInstall(args, 'upgrade');
     case 'check':
       return runCheck(args);
+    case 'audit':
+      return runAudit(args);
     case 'index':
       return runIndex(args);
     default:

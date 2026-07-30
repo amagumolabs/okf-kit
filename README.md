@@ -22,7 +22,7 @@ first and `okf init` replaces that file afterwards.
 npx openspec init --tools claude,codex,cursor
 
 # 2. This kit (pin a tag - the version is what makes upgrades traceable)
-npm i -D github:danhnguyeen/openspec#v2.0.0
+npm i -D github:danhnguyeen/openspec#v0.1.0
 
 # 3. Install the schema, templates, and the CLAUDE.md / AGENTS.md addendum
 npx okf init
@@ -38,7 +38,7 @@ assumed.
 ## Upgrade
 
 ```bash
-npm i -D github:danhnguyeen/openspec#v2.1.0
+npm i -D github:danhnguyeen/openspec#v0.2.0
 npx okf upgrade --dry-run   # see what would change
 npx okf upgrade
 ```
@@ -70,6 +70,7 @@ keep your version and accept that it drifts. What upgrade decides from is
 | `okf check` | Entries, pointers, rule ids, evidence, test statuses, index, debt ledger, kit version skew |
 | `okf check --archive <change-id>` | The stricter pre-archive set - run it before archiving |
 | `okf check --json` | Same findings, machine-readable |
+| `okf audit` | Report entries whose declared `code_paths` changed after they were verified. Reports only, never edits knowledge |
 | `okf index` | Regenerate `.okf/INDEX.md` from entry frontmatter |
 | `okf index --check` | Fail if the index is stale (for CI) |
 | `okf init` / `okf upgrade` | Install or update the kit in a project (`--dry-run`, `--force`) |
@@ -84,6 +85,20 @@ existing workflow:
 ```yaml
 - run: npx okf index --check
 - run: npx okf check
+```
+
+`okf audit` belongs on a schedule, not on every commit. Drift accumulates over
+weeks, and a job that fails a pull request for something nobody in it caused is a
+job that gets deleted:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Monday morning
+jobs:
+  drift:
+    steps:
+      - run: npx okf audit
 ```
 
 CI is the backstop, not the gate: a developer who never runs `okf check` and

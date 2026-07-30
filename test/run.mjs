@@ -6,10 +6,12 @@
  */
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { audit } from '../lib/audit.mjs';
 import { check } from '../lib/check.mjs';
 import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
 import { install, payloadPaths } from '../lib/install.mjs';
@@ -644,6 +646,234 @@ projectTest('divergent CLAUDE.md and AGENTS.md blocks are an error', (root) => {
     /would follow different rules/,
     'the two files must stay identical or tools diverge'
   );
+});
+
+// ---------------------------------------------------------------------------
+// okf audit (UT-001 .. UT-012, see openspec/changes/add-okf-audit/test-cases.md)
+// ---------------------------------------------------------------------------
+
+/**
+ * A real git repository with controlled commit dates. The whole risk of the audit
+ * lives in git's actual pathspec and date behavior, so mocking git would fake
+ * away the only thing worth testing.
+ */
+function gitRepo(fn) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-git-'));
+  const git = (args, date) =>
+    execFileSync('git', args, {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'test',
+        GIT_AUTHOR_EMAIL: 'test@example.com',
+        GIT_COMMITTER_NAME: 'test',
+        GIT_COMMITTER_EMAIL: 'test@example.com',
+        ...(date ? { GIT_AUTHOR_DATE: `${date}T12:00:00`, GIT_COMMITTER_DATE: `${date}T12:00:00` } : {}),
+      },
+    });
+
+  git(['init', '-q', '--initial-branch=main']);
+  fs.mkdirSync(path.join(root, '.okf', 'features'), { recursive: true });
+
+  const commit = (rel, body, date) => {
+    write(root, rel, body);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', `touch ${rel}`], date);
+  };
+
+  return { root, git, commit, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+}
+
+function entry(name, { verified = 'verified', verifiedAt = '2026-07-20', status = 'active', codePaths = [] } = {}) {
+  return `---
+type: Feature Knowledge
+title: ${name}
+description: Test entry for the audit.
+status: ${status}
+verified: ${verified}
+verified_at: ${verifiedAt}
+criticality: normal
+pending_changes: []
+code_paths: [${codePaths.join(', ')}]
+---
+
+# Summary
+
+An entry used by the audit tests.
+`;
+}
+
+function auditTest(name, fn) {
+  const repo = gitRepo();
+  try {
+    fn(repo);
+    passed++;
+  } catch (err) {
+    failures.push({ name, err });
+  } finally {
+    repo.cleanup();
+  }
+}
+
+const byName = (res, name) => res.results.find((r) => r.capability === name);
+
+auditTest('UT-001 audit reports a newer commit as stale', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-20');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-01', codePaths: ['src/**'] }));
+
+  const res = audit(root);
+  const r = byName(res, 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.equal(r.verdict, 'stale');
+  assert.equal(r.newestCommit, '2026-07-20', 'the report must name the commit date');
+  assert.equal(r.triggeredBy, 'src/**', 'the report must name the triggering path');
+  assert.equal(res.stale, 1);
+});
+
+auditTest('UT-002 audit reports an older commit as current', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-01');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['src/**'] }));
+
+  assert.ok(byName(audit(root), 'user-auth'), 'the entry must appear in the results');
+  assert.equal(byName(audit(root), 'user-auth').verdict, 'current');
+});
+
+auditTest('UT-003 audit treats a same-date commit as current', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-20');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['src/**'] }));
+
+  assert.equal(
+    byName(audit(root), 'user-auth').verdict,
+    'current',
+    'verification follows the code it verifies, so the same day is not drift'
+  );
+});
+
+auditTest('UT-004 audit reports an entry with no code_paths as unauditable', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-01', codePaths: [] }));
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.equal(r.verdict, 'unauditable', 'silence about an unknown would be false assurance');
+  assert.equal(audit(root).stale, 0, 'unauditable is not stale');
+});
+
+auditTest('UT-005 audit skips unverified and needs-revision entries', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  write(root, '.okf/features/a.md', entry('a', { verified: 'unverified', codePaths: ['src/**'] }));
+  write(root, '.okf/features/b.md', entry('b', { verified: 'needs-revision', codePaths: ['src/**'] }));
+
+  const res = audit(root);
+  assert.ok(byName(res, 'a') && byName(res, 'b'), 'both entries must appear in the results');
+  assert.equal(byName(res, 'a').verdict, 'skipped');
+  assert.equal(byName(res, 'b').verdict, 'skipped');
+  assert.equal(res.stale, 0);
+});
+
+auditTest('UT-006 audit skips a deprecated entry even when stale', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  write(
+    root,
+    '.okf/features/legacy.md',
+    entry('legacy', { status: 'deprecated', verifiedAt: '2026-07-01', codePaths: ['src/**'] })
+  );
+
+  assert.ok(byName(audit(root), 'legacy'), 'the entry must appear in the results');
+  assert.equal(byName(audit(root), 'legacy').verdict, 'skipped', 'deprecated code is expected to diverge');
+});
+
+auditTest('UT-007 audit does not modify any entry', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  const file = '.okf/features/user-auth.md';
+  write(root, file, entry('user-auth', { verifiedAt: '2026-07-01', codePaths: ['src/**'] }));
+  const before = readF(root, file);
+
+  audit(root);
+  assert.equal(readF(root, file), before, 'the audit must never rewrite knowledge from commit history alone');
+});
+
+auditTest('UT-008 audit ignores uncommitted changes', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-01');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['src/**'] }));
+  write(root, 'src/auth.js', 'edited but not committed\n');
+
+  assert.ok(byName(audit(root), 'user-auth'), 'the entry must appear in the results');
+  assert.equal(byName(audit(root), 'user-auth').verdict, 'current', 'work in progress is not drift');
+});
+
+auditTest('UT-009 audit counts stale entries for the exit status', ({ root, commit }) => {
+  commit('src/a.js', 'a\n', '2026-07-25');
+  commit('src/b.js', 'b\n', '2026-07-25');
+  write(root, '.okf/features/a.md', entry('a', { verifiedAt: '2026-07-01', codePaths: ['src/a.js'] }));
+  write(root, '.okf/features/b.md', entry('b', { verifiedAt: '2026-07-01', codePaths: ['src/b.js'] }));
+
+  assert.equal(audit(root).stale, 2);
+});
+
+auditTest('UT-010 audit exits clean when only unauditable and skipped remain', ({ root, commit }) => {
+  commit('src/a.js', 'a\n', '2026-07-25');
+  write(root, '.okf/features/a.md', entry('a', { codePaths: [] }));
+  write(root, '.okf/features/b.md', entry('b', { verified: 'unverified', codePaths: ['src/**'] }));
+
+  const res = audit(root);
+  assert.equal(res.ok, true);
+  assert.equal(res.stale, 0);
+});
+
+auditTest('UT-011 audit refuses to run outside a git repository', () => {
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-nogit-'));
+  try {
+    fs.mkdirSync(path.join(plain, '.okf', 'features'), { recursive: true });
+    write(plain, '.okf/features/a.md', entry('a', { codePaths: ['src/**'] }));
+
+    const res = audit(plain);
+    assert.equal(res.ok, false, 'it must say it could not run');
+    assert.match(res.reason, /git/i);
+    assert.equal(
+      res.results.filter((r) => r.verdict === 'current').length,
+      0,
+      'reporting entries as current here would be the worst possible lie'
+    );
+  } finally {
+    fs.rmSync(plain, { recursive: true, force: true });
+  }
+});
+
+auditTest('UT-013 audit reports a verified entry with no verified_at as unauditable', ({ root, commit }) => {
+  // Found by the verification pass: reporting `current` here would be a false
+  // assurance built on a comparison that never happened.
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '', codePaths: ['src/**'] }));
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.equal(r.verdict, 'unauditable');
+  assert.equal(audit(root).stale, 0);
+});
+
+auditTest('UT-014 audit reports declared paths with no history as unauditable', ({ root, commit }) => {
+  commit('README.md', 'hi\n', '2026-07-01');
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  write(root, '.okf/features/user-auth.md', entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['src/**'] }));
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.equal(r.verdict, 'unauditable', 'no history means no comparison, not a clean bill of health');
+});
+
+auditTest('UT-012 audit flags a declared path that matches nothing', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-01');
+  write(
+    root,
+    '.okf/features/user-auth.md',
+    entry('user-auth', { verifiedAt: '2026-07-20', codePaths: ['src/**', 'gone/**'] })
+  );
+
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.deepEqual(r.missingPaths, ['gone/**'], 'a vanished path usually means the code moved');
 });
 
 // ---------------------------------------------------------------------------

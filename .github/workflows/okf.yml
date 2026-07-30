@@ -4,6 +4,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    # Drift accumulates over weeks, so the audit runs weekly rather than on every
+    # commit. A job that fails a pull request for drift nobody in it caused is a
+    # job that gets deleted.
+    - cron: '0 6 * * 1'
 
 jobs:
   okf:
@@ -24,6 +29,15 @@ jobs:
 
       - name: validator tests
         run: node test/run.mjs
+
+      # Weekly only: the audit reports drift from work that never opened a change,
+      # which is not something a single pull request can be responsible for.
+      # The unshallow is required - a truncated history hides drift.
+      - name: okf audit
+        if: github.event_name == 'schedule'
+        run: |
+          git fetch --unshallow || true
+          node bin/okf.mjs audit
 
       # A payload file missing from package.json `files` breaks `okf init` only
       # for projects that installed the kit as a package - never in this repo.
