@@ -308,6 +308,45 @@ test('"Not Applicable" without a reason is caught', (root) => {
   assertError(check(root), /gives no specific reason/, 'the escape hatch needs a reason');
 });
 
+test('an escaped pipe inside a table cell does not split the row', (root) => {
+  // Found by dogfooding: evidence cells legitimately contain regexes and shell
+  // pipelines, and shredding them produced findings about columns that never
+  // existed.
+  edit(root, 'openspec/changes/add-mfa/verification.md', (t) =>
+    t.replace(
+      '| BR-1 | user-auth | src/auth/mfa.ts:42 | match | none |',
+      "| BR-1 | user-auth | proven by `grep -n 'mfa\\|totp'` and src/auth/mfa.ts:42 | match | none |"
+    )
+  );
+  const report = check(root);
+  assert.equal(find(report, /has verdict/).length, 0, 'the verdict column must still be found');
+  assert.equal(find(report, /has no evidence/).length, 0, 'the evidence column must still be found');
+});
+
+test('a wrapped "not applicable" bullet is read as one bullet', (root) => {
+  // Found by dogfooding: reading physical lines made the tail of a wrapped
+  // sentence look like a reasonless declaration of its own.
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t.replace(
+      '- Integration: session creation',
+      '- Integration: not applicable, git is the only boundary and the unit tests\n  already exercise it for real (see test-cases.md Not Applicable).'
+    )
+  );
+  const report = check(root);
+  assert.equal(find(report, /gives no specific reason/).length, 0, 'a wrapped bullet must not be split');
+});
+
+test('a mention of "Not Applicable" is not a declaration', (root) => {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t
+      .replace('- Unit: MFA rule', '- Unit: MFA rule, see test-cases.md Not Applicable for the rest')
+      .replace('| passing |', '| red |')
+  );
+  const report = check(root);
+  assert.equal(find(report, /gives no specific reason/).length, 0, 'naming a section is not declaring one');
+  assertError(report, /unknown test status "red"/, 'a mention must not exempt the plan from checking');
+});
+
 test('a per-level "not applicable" with a reason does not exempt the whole plan', (root) => {
   edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) => t.replace('| passing |', '| red |'));
   assertError(check(root), /unknown test status "red"/, 'one exempt level must not silence the rest');
