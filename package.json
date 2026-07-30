@@ -13,10 +13,12 @@
   "files": [
     "bin",
     "lib",
+    "openspec/config.yaml",
     "openspec/schemas",
-    ".okf/templates",
     ".okf/README.md",
-    "AGENTS.md"
+    ".okf/templates",
+    "AGENTS.md",
+    "CLAUDE.md"
   ],
   "scripts": {
     "check": "node bin/okf.mjs check",

@@ -24,3 +24,18 @@ jobs:
 
       - name: validator tests
         run: node test/run.mjs
+
+      # A payload file missing from package.json `files` breaks `okf init` only
+      # for projects that installed the kit as a package - never in this repo.
+      # So pack it, install it into an empty dir, and prove the result works.
+      - name: packaged install smoke test
+        run: |
+          set -euo pipefail
+          npm pack --pack-destination /tmp/pack
+          mkdir -p /tmp/kit /tmp/proj
+          tar -xzf /tmp/pack/*.tgz -C /tmp/kit --strip-components=1
+          cd /tmp/proj
+          node /tmp/kit/bin/okf.mjs init
+          node /tmp/kit/bin/okf.mjs index
+          node /tmp/kit/bin/okf.mjs check
+          npx --yes @fission-ai/openspec@1.6.0 schema validate okf-gated-feature

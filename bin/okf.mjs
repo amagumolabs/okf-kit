@@ -5,24 +5,37 @@ import process from 'node:process';
 
 import { check } from '../lib/check.mjs';
 import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
+import { install } from '../lib/install.mjs';
 
-const USAGE = `okf - OpenSpec + OKF workflow validator
+const KIT_ROOT = path.resolve(import.meta.dirname, '..');
+const VERSION = JSON.parse(fs.readFileSync(path.join(KIT_ROOT, 'package.json'), 'utf8')).version;
+
+const USAGE = `okf ${VERSION} - OpenSpec + OKF workflow kit
 
 Usage:
-  okf check [--archive <change-id>] [--root <dir>] [--json]
-  okf index [--check] [--root <dir>]
+  okf init    [--root <dir>] [--dry-run]
+  okf upgrade [--root <dir>] [--dry-run] [--force]
+  okf check   [--archive <change-id>] [--root <dir>] [--json]
+  okf index   [--check] [--root <dir>]
 
 Commands:
-  check    Validate .okf entries, the index, config.yaml, and every active
-           change's okf-link / test-plan / verification artifacts.
-           --archive <change-id> adds the stricter pre-archive checks: the
-           verification pass must be recorded, pending_changes cleared, and no
-           skeleton test left without an owner.
+  init      Install the schema, templates, and the CLAUDE.md / AGENTS.md
+            addendum block into a project. Refuses if already initialised.
 
-  index    Regenerate .okf/INDEX.md from entry frontmatter.
-           --check verifies it is up to date without writing (for CI).
+  upgrade   Re-install the kit-owned files. Files your team edited are left
+            alone and reported; --force overwrites them anyway. Never touches
+            .okf/features/, .okf/decisions/, or INDEX.md.
 
-Exit codes: 0 clean, 1 errors found, 2 bad usage.
+  check     Validate .okf entries, the index, config.yaml, and every active
+            change's okf-link / test-plan / verification artifacts.
+            --archive <change-id> adds the pre-archive checks: the verification
+            pass recorded, pending_changes cleared, no skeleton test left
+            without an owner.
+
+  index     Regenerate .okf/INDEX.md from entry frontmatter.
+            --check verifies it is up to date without writing (for CI).
+
+Exit codes: 0 clean, 1 problems found, 2 bad usage.
 `;
 
 function parseArgs(argv) {
@@ -33,6 +46,8 @@ function parseArgs(argv) {
     else if (a === '--root') out.root = path.resolve(argv[++i]);
     else if (a === '--json') out.flags.json = true;
     else if (a === '--check') out.flags.check = true;
+    else if (a === '--dry-run') out.flags.dryRun = true;
+    else if (a === '--force') out.flags.force = true;
     else if (a === '-h' || a === '--help') out.flags.help = true;
     else return { error: `unknown argument: ${a}` };
   }
@@ -52,7 +67,7 @@ function findRoot(start) {
 
 function runCheck(args) {
   const root = findRoot(args.root);
-  const report = check(root, { archiveChange: args.flags.archive ?? null });
+  const report = check(root, { archiveChange: args.flags.archive ?? null, kitVersion: VERSION });
 
   if (args.flags.json) {
     process.stdout.write(
@@ -110,11 +125,67 @@ function runIndex(args) {
   return 0;
 }
 
+function runInstall(args, mode) {
+  const root = mode === 'init' ? args.root : findRoot(args.root);
+  if (path.resolve(root) === KIT_ROOT) {
+    console.error('okf: refusing to install the kit into itself');
+    return 2;
+  }
+
+  const result = install(KIT_ROOT, root, VERSION, {
+    mode,
+    dryRun: args.flags.dryRun,
+    force: args.flags.force,
+  });
+
+  if (!result.ok) {
+    console.error(`okf ${mode}: ${result.reason}`);
+    return 1;
+  }
+
+  const label = { add: 'add', update: 'update', unchanged: 'unchanged', 'skip-modified': 'MODIFIED LOCALLY' };
+  const counts = { add: 0, update: 0, unchanged: 0, 'skip-modified': 0 };
+
+  const prefix = args.flags.dryRun ? 'would ' : '';
+  for (const a of result.actions) {
+    counts[a.action]++;
+    if (a.action === 'unchanged') continue;
+    if (a.action === 'skip-modified') {
+      const verb = args.flags.force ? `${prefix}overwrite (--force)` : 'skipped';
+      console.log(`  ${label[a.action]}  ${a.rel}  -> ${verb}`);
+    } else {
+      console.log(`  ${prefix}${label[a.action]}  ${a.rel}`);
+    }
+  }
+
+  const from = result.from ? ` from v${result.from}` : '';
+  console.log(
+    `\nokf ${mode}${args.flags.dryRun ? ' (dry run)' : ''}: v${VERSION}${from} - ` +
+      `${counts.add} added, ${counts.update} updated, ${counts.unchanged} unchanged, ` +
+      `${counts['skip-modified']} locally modified`
+  );
+
+  if (counts['skip-modified'] && !args.flags.force) {
+    console.log(
+      'Locally modified files were left alone. Diff them against the kit, fold in what you want,\n' +
+        'then re-run with --force - or keep the local version and accept it will drift.'
+    );
+  }
+  if (!args.flags.dryRun && mode === 'init') {
+    console.log('Next: `okf index`, then `okf check`.');
+  }
+  return 0;
+}
+
 function main() {
   const argv = process.argv.slice(2);
   if (!argv.length || argv[0] === '-h' || argv[0] === '--help') {
     process.stdout.write(USAGE);
     return argv.length ? 0 : 2;
+  }
+  if (argv[0] === '-v' || argv[0] === '--version') {
+    console.log(VERSION);
+    return 0;
   }
 
   const args = parseArgs(argv);
@@ -129,6 +200,10 @@ function main() {
   }
 
   switch (args.command) {
+    case 'init':
+      return runInstall(args, 'init');
+    case 'upgrade':
+      return runInstall(args, 'upgrade');
     case 'check':
       return runCheck(args);
     case 'index':

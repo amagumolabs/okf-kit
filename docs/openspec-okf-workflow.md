@@ -39,6 +39,8 @@ developer at a terminal, and CI:
 | A `BR-n` cited by the specs with no Rule Evidence row, or a row with no reference or an invalid verdict | error |
 | `INDEX.md` out of sync with the entries; `needs-revision` missing from the ledger, or older than 30 days | error |
 | `config.yaml` rule containing an unquoted `: ` (YAML reads it as a mapping and the CLI silently drops every rule for that artifact) | error |
+| Missing `okf-kit` marker block, or `CLAUDE.md` and `AGENTS.md` blocks that differ from each other | error |
+| Project running an older kit version than the one installed | warning |
 | `verified` with empty `code_paths`; `failing` with no assertion message; template comment left in an entry | warning |
 
 `okf check --archive <change-id>` adds the pre-archive set: the verification pass
@@ -162,9 +164,15 @@ the Capabilities section match exactly.
 
 `openspec update` regenerates the `openspec-*` skill files under `.claude/`,
 `.codex/`, and `.cursor/` from the CLI's bundled templates, so anything
-hand-edited there is eventually overwritten. Only `openspec/config.yaml`, the
-schema directory, and the marker block in `CLAUDE.md` / `AGENTS.md` are safe
-customization points.
+hand-edited there is eventually overwritten. It does leave the `okf-kit` marker
+block in `CLAUDE.md` / `AGENTS.md` alone.
+
+That leaves three places where behavior can live: `openspec/config.yaml`, the
+schema directory, and the marker block. All three are **kit-owned** - `okf
+upgrade` replaces them, unless your project has edited the file, in which case it
+reports the conflict and leaves it alone (see the README). Project-specific
+instructions belong in `CLAUDE.md` / `AGENTS.md` *outside* the markers, which
+upgrade never touches.
 
 | Skill | Reads schema at runtime? | Where its OKF behavior lives |
 | --- | --- | --- |

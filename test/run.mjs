@@ -5,12 +5,14 @@
  * Run with `npm test` or `node test/run.mjs`.
  */
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import { check } from '../lib/check.mjs';
 import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
+import { install, payloadPaths } from '../lib/install.mjs';
 
 const KIT = path.resolve(import.meta.dirname, '..');
 
@@ -411,6 +413,198 @@ test('okf index keeps hand-written ledger notes across regeneration', (root) => 
   const text = readF(root, '.okf/INDEX.md');
   assert.match(text, /decide if MFA applies to service accounts/, 'the note must survive');
   assert.match(text, /\| user-auth \| 2026-07-30 \|/, 'the original Since date must survive');
+});
+
+// ---------------------------------------------------------------------------
+// init / upgrade
+// ---------------------------------------------------------------------------
+
+const KIT_VERSION = JSON.parse(fs.readFileSync(path.join(KIT, 'package.json'), 'utf8')).version;
+
+/** A bare project dir, as if someone just cloned their app repo. */
+function bare(fn) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-proj-'));
+  try {
+    fn(root);
+    passed++;
+  } catch (err) {
+    failures.push({ name: fn.testName ?? 'bare test', err });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+function projectTest(name, fn) {
+  fn.testName = name;
+  bare(fn);
+}
+
+projectTest('init installs the payload, dirs, manifest, and addendum', (root) => {
+  const res = install(KIT, root, KIT_VERSION, { mode: 'init' });
+  assert.equal(res.ok, true);
+
+  for (const rel of [
+    'openspec/config.yaml',
+    'openspec/schemas/okf-gated-feature/schema.yaml',
+    'openspec/schemas/okf-gated-feature/templates/okf-link.md',
+    '.okf/README.md',
+    '.okf/templates/feature.template.md',
+    '.okf/templates/decision.template.md',
+    '.okf/.okf-kit.json',
+    'CLAUDE.md',
+    'AGENTS.md',
+  ]) {
+    assert.ok(fs.existsSync(path.join(root, rel)), `${rel} should exist after init`);
+  }
+  assert.ok(fs.existsSync(path.join(root, '.okf/features')), 'features/ must be created');
+  assert.ok(fs.existsSync(path.join(root, '.okf/decisions')), 'decisions/ must be created');
+
+  const manifest = JSON.parse(readF(root, '.okf/.okf-kit.json'));
+  assert.equal(manifest.version, KIT_VERSION);
+  assert.ok(manifest.files['openspec/config.yaml'], 'payload files are hashed');
+  assert.ok(manifest.files['CLAUDE.md#block'], 'the addendum block is hashed');
+
+  const claude = readF(root, 'CLAUDE.md');
+  assert.match(claude, new RegExp(`okf-kit:start v${KIT_VERSION.replace(/\./g, '\\.')}`));
+  assert.match(claude, /okf-kit:end/);
+  assert.match(claude, /named after the \*\*capability\*\*/, 'the real addendum body is installed');
+});
+
+projectTest('init refuses to run twice', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  const again = install(KIT, root, KIT_VERSION, { mode: 'init' });
+  assert.equal(again.ok, false);
+  assert.match(again.reason, /already initialised/);
+});
+
+projectTest('upgrade refuses without a manifest', (root) => {
+  const res = install(KIT, root, KIT_VERSION, { mode: 'upgrade' });
+  assert.equal(res.ok, false);
+  assert.match(res.reason, /run `okf init` first/);
+});
+
+projectTest('upgrade replaces an untouched kit file', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  // simulate an older kit version shipping different content
+  write(root, '.okf/templates/feature.template.md', 'old kit content\n');
+  const manifest = JSON.parse(readF(root, '.okf/.okf-kit.json'));
+  manifest.files['.okf/templates/feature.template.md'] = crypto
+    .createHash('sha256')
+    .update('old kit content\n')
+    .digest('hex');
+  write(root, '.okf/.okf-kit.json', JSON.stringify(manifest, null, 2));
+
+  const res = install(KIT, root, KIT_VERSION, { mode: 'upgrade' });
+  const acted = res.actions.find((a) => a.rel === '.okf/templates/feature.template.md');
+  assert.equal(acted.action, 'update');
+  assert.match(readF(root, '.okf/templates/feature.template.md'), /HOW TO USE THIS TEMPLATE/);
+});
+
+projectTest('upgrade leaves a locally edited kit file alone', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  const target = '.okf/templates/feature.template.md';
+  write(root, target, 'our team rewrote this template\n');
+
+  const res = install(KIT, root, KIT_VERSION, { mode: 'upgrade' });
+  const acted = res.actions.find((a) => a.rel === target);
+  assert.equal(acted.action, 'skip-modified', 'a team edit must not be silently clobbered');
+  assert.equal(readF(root, target), 'our team rewrote this template\n');
+});
+
+projectTest('upgrade --force overwrites a locally edited kit file', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  const target = '.okf/templates/feature.template.md';
+  write(root, target, 'our team rewrote this template\n');
+
+  install(KIT, root, KIT_VERSION, { mode: 'upgrade', force: true });
+  assert.match(readF(root, target), /HOW TO USE THIS TEMPLATE/, '--force must actually overwrite');
+});
+
+projectTest('upgrade never touches project-owned OKF content', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  write(root, '.okf/features/billing.md', '---\ntitle: billing\n---\n\n# Summary\n\nOurs.\n');
+  write(root, '.okf/INDEX.md', 'our index\n');
+
+  install(KIT, root, KIT_VERSION, { mode: 'upgrade', force: true });
+  assert.match(readF(root, '.okf/features/billing.md'), /Ours\./, 'entries are project-owned');
+  assert.equal(readF(root, '.okf/INDEX.md'), 'our index\n', 'INDEX.md is generated, not installed');
+});
+
+projectTest('upgrade preserves project text outside the markers', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  edit(root, 'CLAUDE.md', (t) => `# Our House Rules\n\nUse tabs. Ship on Fridays.\n\n${t}\n\n## Appendix\n\nOurs too.\n`);
+  // make the kit block look like it came from an older version
+  edit(root, 'CLAUDE.md', (t) => t.replace(/okf-kit:start v[^\s]+/, 'okf-kit:start v1.0.0'));
+  const manifest = JSON.parse(readF(root, '.okf/.okf-kit.json'));
+  write(root, '.okf/.okf-kit.json', JSON.stringify(manifest, null, 2));
+
+  install(KIT, root, KIT_VERSION, { mode: 'upgrade' });
+  const text = readF(root, 'CLAUDE.md');
+  assert.match(text, /Use tabs\. Ship on Fridays\./, 'text above the block survives');
+  assert.match(text, /## Appendix\n\nOurs too\./, 'text below the block survives');
+  assert.match(text, new RegExp(`okf-kit:start v${KIT_VERSION.replace(/\./g, '\\.')}`), 'block version is bumped');
+  assert.equal((text.match(/okf-kit:start/g) || []).length, 1, 'the block must not be duplicated');
+});
+
+projectTest('init appends the block to an existing CLAUDE.md without markers', (root) => {
+  write(root, 'CLAUDE.md', '# Existing\n\nProject rules.\n');
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  const text = readF(root, 'CLAUDE.md');
+  assert.match(text, /# Existing\n\nProject rules\./, 'existing content is kept');
+  assert.match(text, /okf-kit:start/, 'the block is appended');
+});
+
+projectTest('dry run writes nothing', (root) => {
+  const res = install(KIT, root, KIT_VERSION, { mode: 'init', dryRun: true });
+  assert.equal(res.ok, true);
+  assert.ok(res.actions.length > 5, 'it should still report the plan');
+  assert.equal(fs.existsSync(path.join(root, '.okf/.okf-kit.json')), false, 'nothing may be written');
+  assert.equal(fs.existsSync(path.join(root, 'CLAUDE.md')), false, 'nothing may be written');
+});
+
+projectTest('an installed project passes check, and version skew warns', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  writeIndex(root, { today: '2026-07-30' });
+
+  const clean = check(root, { kitVersion: KIT_VERSION });
+  assert.deepEqual(
+    clean.findings.map((f) => `[${f.level}] ${f.file}: ${f.message}`),
+    [],
+    'a freshly initialised project must be clean'
+  );
+
+  const skewed = check(root, { kitVersion: '9.9.9' });
+  assert.ok(
+    find(skewed, /run `okf upgrade`/, 'warn').length > 0,
+    'a project on an older kit must be told'
+  );
+});
+
+/**
+ * A payload file missing from package.json `files` breaks `okf init` only for
+ * people who installed the kit as a package - never in this repo. Guard it
+ * statically so the failure cannot escape into other teams' projects.
+ */
+projectTest('package.json files[] covers every installed payload path', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(KIT, 'package.json'), 'utf8'));
+  const shipped = pkg.files ?? [];
+  const needed = [...payloadPaths(KIT), 'AGENTS.md', 'bin/okf.mjs', 'lib/install.mjs'];
+
+  const missing = needed.filter(
+    (rel) => !shipped.some((entry) => rel === entry || rel.startsWith(entry.replace(/\/$/, '') + '/'))
+  );
+  assert.deepEqual(missing, [], 'these paths are installed by okf init but would not ship in the package');
+});
+
+projectTest('divergent CLAUDE.md and AGENTS.md blocks are an error', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  writeIndex(root, { today: '2026-07-30' });
+  edit(root, 'AGENTS.md', (t) => t.replace('named after the **capability**', 'named after the change'));
+
+  assertError(
+    check(root, { kitVersion: KIT_VERSION }),
+    /would follow different rules/,
+    'the two files must stay identical or tools diverge'
+  );
 });
 
 // ---------------------------------------------------------------------------
