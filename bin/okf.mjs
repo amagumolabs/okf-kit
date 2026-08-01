@@ -5,8 +5,9 @@ import process from 'node:process';
 
 import { audit } from '../lib/audit.mjs';
 import { check } from '../lib/check.mjs';
-import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
+import { buildIndex, buildLog, writeIndex } from '../lib/index-gen.mjs';
 import { install } from '../lib/install.mjs';
+import { migrate } from '../lib/migrate.mjs';
 
 const KIT_ROOT = path.resolve(import.meta.dirname, '..');
 const VERSION = JSON.parse(fs.readFileSync(path.join(KIT_ROOT, 'package.json'), 'utf8')).version;
@@ -19,6 +20,7 @@ Usage:
   okf check   [--archive <change-id>] [--root <dir>] [--json]
   okf audit   [--root <dir>] [--json]
   okf index   [--check] [--root <dir>]
+  okf migrate [--root <dir>] [--dry-run]
 
 Commands:
   init      Install the schema, templates, and the CLAUDE.md / AGENTS.md
@@ -26,7 +28,8 @@ Commands:
 
   upgrade   Re-install the kit-owned files. Files your team edited are left
             alone and reported; --force overwrites them anyway. Never touches
-            .okf/features/, .okf/decisions/, or INDEX.md.
+            .okf/features/, .okf/decisions/, or index.md - use \`okf migrate\`
+            for those.
 
   check     Validate .okf entries, the index, config.yaml, and every active
             change's okf-link / test-plan / verification artifacts.
@@ -39,8 +42,15 @@ Commands:
             becomes visible. Reports only; never edits knowledge. Exits non-zero
             when anything is stale. Meant as a scheduled job, not a commit gate.
 
-  index     Regenerate .okf/INDEX.md from entry frontmatter.
-            --check verifies it is up to date without writing (for CI).
+  index     Regenerate .okf/index.md and .okf/log.md from entry frontmatter.
+            --check verifies they are up to date without writing (for CI).
+
+  migrate   Move entry frontmatter to the current kit shape. The only command
+            that writes to .okf/features/ and .okf/decisions/, which is why it
+            is invoked deliberately rather than as part of upgrade. It never
+            invents a \`verified[]\` attestation: nobody knows who performed a
+            verification recorded before attestations existed, so a migrated
+            entry reads as unverified until its next verification pass.
 
 Exit codes: 0 clean, 1 problems found, 2 bad usage.
 `;
@@ -162,22 +172,55 @@ function runAudit(args) {
 
 function runIndex(args) {
   const root = findRoot(args.root);
-  const indexPath = path.join(root, '.okf', 'INDEX.md');
 
   if (args.flags.check) {
-    const next = buildIndex(root);
-    const prev = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : null;
-    if (prev === next) {
+    const stale = [];
+    for (const [rel, next] of [
+      ['.okf/index.md', buildIndex(root)],
+      ['.okf/log.md', buildLog(root)],
+    ]) {
+      const p = path.join(root, rel);
+      const prev = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+      if (prev !== next) stale.push(rel);
+    }
+    if (!stale.length) {
       console.log('okf index: up to date');
       return 0;
     }
-    console.log('okf index: .okf/INDEX.md is stale - run `okf index`');
+    console.log(`okf index: ${stale.join(' and ')} stale - run \`okf index\``);
     return 1;
   }
 
-  const { changed } = writeIndex(root);
-  console.log(changed ? 'okf index: .okf/INDEX.md regenerated' : 'okf index: already up to date');
+  const { changed, indexChanged, logChanged } = writeIndex(root);
+  if (!changed) {
+    console.log('okf index: already up to date');
+    return 0;
+  }
+  const written = [indexChanged && '.okf/index.md', logChanged && '.okf/log.md'].filter(Boolean);
+  console.log(`okf index: ${written.join(' and ')} regenerated`);
   return 0;
+}
+
+function runMigrate(args) {
+  const root = findRoot(args.root);
+  const res = migrate(root, { dryRun: args.flags.dryRun });
+  const prefix = args.flags.dryRun ? 'would rewrite' : 'rewrote';
+
+  for (const f of res.rewritten) console.log(`  ${prefix}  ${f}`);
+  for (const f of res.unparseable) console.log(`  UNPARSEABLE  ${f}  -> left untouched`);
+
+  console.log(
+    `\nokf migrate${args.flags.dryRun ? ' (dry run)' : ''}: ${res.examined.length} examined, ` +
+      `${res.rewritten.length} rewritten, ${res.alreadyCurrent.length} already current, ` +
+      `${res.unparseable.length} unparseable`
+  );
+  if (res.rewritten.length && !args.flags.dryRun) {
+    console.log(
+      'Migrated entries carry no `verified[]` attestation - nobody recorded who performed those\n' +
+        'verifications. Each regains one at its next verification pass; `okf check` warns until then.'
+    );
+  }
+  return res.unparseable.length ? 1 : 0;
 }
 
 function runInstall(args, mode) {
@@ -265,6 +308,8 @@ function main() {
       return runAudit(args);
     case 'index':
       return runIndex(args);
+    case 'migrate':
+      return runMigrate(args);
     default:
       console.error(`okf: unknown command "${args.command}"\n`);
       process.stdout.write(USAGE);
