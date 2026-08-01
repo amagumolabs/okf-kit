@@ -16,6 +16,7 @@
     "openspec/config.yaml",
     "openspec/schemas",
     ".okf/README.md",
+    ".okf/profile.md",
     ".okf/templates",
     "AGENTS.md",
     "CLAUDE.md"

@@ -2,8 +2,8 @@
 type: Feature Knowledge
 title: <capability-name>
 description: <one sentence summary>
-status: active
-verified: unverified
+status: stable
+verification_state: unverified
 verified_at:
 criticality: normal
 pending_changes:
@@ -15,7 +15,7 @@ sources:
 linked_changes:
   - <openspec-change-id>
 generated:
-  by: <agent-or-person>
+  by: <producer/version, human:id, or process:id>
   at: <iso-8601-timestamp>
 ---
 
@@ -41,8 +41,13 @@ HOW TO USE THIS TEMPLATE
      archived changes.
 
 4. Frontmatter meaning:
-   - `status`: `active` | `deprecated`
-   - `verified`: `unverified` | `verified` | `needs-revision`
+   - `status`: `draft` | `stable` | `deprecated` (the specification's vocabulary)
+   - `verification_state`: `unverified` | `verified` | `needs-revision`. This is the
+     kit's workflow gate. It is deliberately NOT the specification's `verified`
+     key, which a consumer reads as an attestation list.
+   - `verified`: written only by the verification pass - a list of `{by, at}`
+     recording who vouches for the CURRENT content. Absent while the entry is
+     `unverified` or `needs-revision`. Replaced, never appended across changes.
    - `verified_at`: date of the last successful verification pass
    - `criticality`: `normal` | `high`. Use `high` for auth, permissions, money,
      or customer data. A `high` entry must be verified with fresh context (an
