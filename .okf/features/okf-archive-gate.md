@@ -2,8 +2,8 @@
 type: Feature Knowledge
 title: okf-archive-gate
 description: The pre-archive completeness gate that decides whether a change's OKF pass is finished, and that must not be silenced by any escape hatch.
-status: active
-verified: verified
+status: stable
+verification_state: verified
 verified_at: 2026-07-30
 criticality: normal
 pending_changes: []
@@ -16,7 +16,7 @@ sources:
 linked_changes:
   - enforce-decision-promotion
 generated:
-  by: claude-opus-5
+  by: anthropic/claude-opus-5
   at: 2026-07-30T00:00:00Z
 ---
 

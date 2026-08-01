@@ -2,20 +2,26 @@
 type: Feature Knowledge
 title: okf-audit
 description: Detects OKF entries whose code changed after they were last verified, so drift from work outside OpenSpec becomes visible.
-status: active
-verified: verified
-verified_at: 2026-07-30
+status: stable
+verification_state: verified
+verified_at: 2026-08-01
+verified:
+  - by: anthropic/claude-opus-5
+    at: 2026-08-01T00:00:00Z
 criticality: normal
 pending_changes: []
 code_paths: [lib/audit.mjs, bin/okf.mjs]
 sources:
   - id: design-2026-07-30
     resource: 'Design conversation 2026-07-30, deferred phase 2: "code_paths da co du lieu, okf-audit chi la script ~20 dong: git log -1 --format=%cd tren code_paths so voi verified_at, cai nao code moi hon thi danh stale"'
+  - id: change-okf-spec-conformance
+    resource: change:okf-spec-conformance
 linked_changes:
   - add-okf-audit
   - fix-audit-untracked-paths
+  - okf-spec-conformance
 generated:
-  by: claude-opus-5
+  by: anthropic/claude-opus-5
   at: 2026-07-30T00:00:00Z
 ---
 
@@ -51,12 +57,13 @@ paths that entry claims to describe. It reports; it never edits knowledge.
 | BR-1 | An entry is stale when any path it declares in `code_paths` has a commit strictly newer than the entry's `verified_at` date. | design-2026-07-30 |
 | BR-2 | A commit dated the same day as `verified_at` MUST NOT count as drift, because verification happens after the code it verifies and both carry only date precision. | design-2026-07-30 |
 | BR-3 | An entry with no `code_paths` MUST be reported as unauditable rather than current, and MUST NOT be reported as stale. Silence about an unknown is a false assurance. | design-2026-07-30 |
-| BR-4 | Only entries whose `verified` is `verified` are audited. `unverified` and `needs-revision` are already surfaced by `okf check`, and re-reporting them here would bury the drift signal. | design-2026-07-30 |
+| BR-4 | Only entries whose `verification_state` is `verified` are audited. `unverified` and `needs-revision` are already surfaced by `okf check`, and re-reporting them here would bury the drift signal. (Field renamed from `verified` in okf-spec-conformance; the rule itself is unchanged.) | design-2026-07-30 |
 | BR-5 | An entry whose `status` is `deprecated` MUST be skipped. Its code is expected to diverge. | design-2026-07-30 |
-| BR-6 | The audit MUST NOT modify any entry, including its `verified` field. Downgrading status from commit history alone would let the tool decide knowledge is wrong without anyone reading either the knowledge or the code. | design-2026-07-30 |
+| BR-6 | The audit MUST NOT modify any entry, including its `verification_state` field. Downgrading status from commit history alone would let the tool decide knowledge is wrong without anyone reading either the knowledge or the code. (Field renamed from `verified` in okf-spec-conformance; the rule itself is unchanged.) | design-2026-07-30 |
 | BR-7 | Staleness MUST be judged from committed history only. Uncommitted working-tree changes are not drift; they are work in progress. | design-2026-07-30 |
 | BR-8 | Whenever a comparison cannot be made at all - no declared paths, no `verified_at` to compare against, or no commit history for the declared paths - the entry MUST be reported as unauditable rather than current. Generalises BR-3: the audit never converts an unknown into an assurance. | add-okf-audit verification pass |
 | BR-9 | A declared path that exists in the working tree but is not yet committed MUST be reported as not-yet-committed, not as matching nothing. Verification precedes the commit that introduces a feature's files, so every new capability passes through this state, and calling it a vanished path trains people to ignore the report. | change:fix-audit-untracked-paths |
+| BR-10 | The audit MUST select entries by `verification_state`, never by the presence of a `verified[]` attestation. After a migration an entry can be verified by the workflow while carrying no attestation at all, and keying on the attestation would silently stop auditing exactly those entries - drift detection would go quiet on the whole bundle at the moment it is most needed. | change:okf-spec-conformance |
 
 # Data Entities
 
@@ -70,7 +77,8 @@ paths that entry claims to describe. It reports; it never edits knowledge.
 ## Primary Workflow
 
 1. Collect every entry under `.okf/features/`.
-2. Skip entries that are deprecated, or not `verified` (BR-4, BR-5).
+2. Skip entries that are deprecated, or whose `verification_state` is not
+   `verified` (BR-4, BR-5, BR-10).
 3. Record `unauditable` whenever no comparison is possible: no `code_paths`, no
    `verified_at`, or no commit history for the declared paths (BR-3, BR-8).
 4. Otherwise ask git for the most recent commit date touching those paths, and
@@ -117,3 +125,4 @@ paths that entry claims to describe. It reports; it never edits knowledge.
 | --- | --- | --- | --- |
 | 2026-07-30 | fix-audit-untracked-paths | verified | BR-9 traced to lib/audit.mjs:162-163 and :78; BR-3 and BR-8 re-checked because this change edited the requirement citing them. Data Entities corrected to list the new result fields. |
 | 2026-07-30 | add-okf-audit | verified | All 8 rules traced to `lib/audit.mjs` with line references, see the change's verification.md. BR-8 was added during this pass after finding the audit reported `current` for comparisons it never made. |
+| 2026-08-01 | okf-spec-conformance | verified | BR-4 and BR-6 re-checked after the field rename: lib/audit.mjs:142-143 now selects on `verification_state`. BR-10 traced to the same lines - the selection never reads `verified[]`, so a migrated entry is still audited. BR-1, BR-2, BR-3, BR-5, BR-7, BR-8, BR-9 untouched by this change and not re-traced. |

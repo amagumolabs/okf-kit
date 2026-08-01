@@ -3,7 +3,8 @@ type: Decision
 title: Whether a decision must be promoted is derived from design.md's shape, and an unreadable shape requires a row
 description: The archive gate reads design.md rather than accepting a declaration, and treats any shape it cannot recognise as "a row is required" rather than as a waiver.
 date: 2026-07-30
-status: accepted
+status: stable
+decision_status: accepted
 supersedes:
 superseded_by:
 affects_features:

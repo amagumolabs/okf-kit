@@ -3,7 +3,8 @@ type: Decision
 title: A finding's severity follows the strength of the signal behind it
 description: In okf check, an error must rest on fixed structure; a finding that rests on inference over free prose may only warn.
 date: 2026-07-30
-status: accepted
+status: stable
+decision_status: accepted
 supersedes:
 superseded_by:
 affects_features:

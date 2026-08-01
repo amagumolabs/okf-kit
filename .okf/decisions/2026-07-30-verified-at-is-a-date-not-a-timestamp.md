@@ -3,7 +3,8 @@ type: Decision
 title: verified_at is a date, and comparisons against it are date comparisons
 description: Drift comparisons use YYYY-MM-DD granularity, and a same-day commit is not drift.
 date: 2026-07-30
-status: accepted
+status: stable
+decision_status: accepted
 supersedes:
 superseded_by:
 affects_features:
