@@ -30,7 +30,9 @@ artifacts:
          genuinely several plausible candidates.
 
       3. If no entry exists, create `.okf/features/<capability-name>.md` from
-         `.okf/templates/feature.template.md`. Set `verified: unverified`, add
+         `.okf/templates/feature.md.tmpl`. Set `verification_state: unverified` and
+         write no `verified` key at all - an entry nobody vouches for must read
+         as unverified to any consumer. Add
          this change id to `pending_changes` and `linked_changes`, and record
          provenance in `sources` (the PRD/spec path, the explore session, or a
          short quote of the original request). Leave `code_paths` empty - the
@@ -40,7 +42,8 @@ artifacts:
       4. If an entry exists, enrich it in place: add what this change contributes,
          do not overwrite unrelated sections, do not invent requirements. Append
          this change id to `pending_changes` and `linked_changes`. Do NOT touch
-         `verified` or `verified_at` - only the verification pass moves those. An
+         `verification_state`, `verified` or `verified_at` - only the
+         verification pass moves those. An
          entry can legitimately stay `verified` while carrying a pending change;
          that is exactly what `pending_changes` is for.
 
@@ -55,7 +58,7 @@ artifacts:
          create an empty entry to satisfy the table.
 
       7. Write okf-link.md: one row per capability, mirroring each entry's
-         `verified` value at the time of writing.
+         `verification_state` at the time of writing.
 
       8. Update `.okf/INDEX.md` (Features table) for any new entry.
 
@@ -373,15 +376,32 @@ artifacts:
          in `.okf/features/<capability>.md` - never in a copy, never in this
          change directory.
 
-      5. For each linked entry: set `verified` (`verified` or `needs-revision`,
-         never left at `unverified`), set `verified_at`, fill `code_paths` from
-         the evidence you just gathered, remove this change id from
-         `pending_changes`, and append a row to the entry's Verification History
-         with concrete evidence.
+      5. For each linked entry: set `verification_state` (`verified` or
+         `needs-revision`, never left at `unverified`), set `verified_at`, fill
+         `code_paths` from the evidence you just gathered, remove this change id
+         from `pending_changes`, and append a row to the entry's Verification
+         History with concrete evidence.
+
+         Then write the specification's `verified` key - the attestation list
+         recording who vouches for the entry's CURRENT content:
+
+           verified:
+             - by: <producer>/<version>
+               at: <iso-8601-datetime>
+
+         REPLACE that list, never append to it across changes. It answers "who
+         vouches for what is in the file now", while the Verification History
+         table answers "how did this file get here" - two questions, not two
+         copies of one. On a `conflict` verdict, DELETE the key: nobody vouches
+         for content under revision, and leaving a stale attestation makes a
+         consumer read the entry as confirmed.
+
+         Never write a `human:<id>` actor yourself. Only the person named can
+         make that attestation true - stop and ask them to add it.
 
       6. Promote any decision in design.md that outlives this change to
          `.okf/decisions/<YYYY-MM-DD>-<slug>.md` using
-         `.okf/templates/decision.template.md`. Archiving buries design.md where
+         `.okf/templates/decision.md.tmpl`. Archiving buries design.md where
          nobody will find it.
 
          The Decision Promotion table is ENFORCED by `okf check --archive`, not
@@ -398,7 +418,8 @@ artifacts:
          them is a heuristic. Take it as a prompt to name what you left out, not
          as a row quota to fill.
 
-      7. Regenerate `.okf/INDEX.md`. If any entry ended at `needs-revision`, add
+      7. Regenerate `.okf/index.md` and `.okf/log.md` with `okf index`. If any
+         entry ended at `needs-revision`, add
          a row to the Needs Revision Ledger stating what a human must decide.
 
       8. Record the outcome per capability in the Entry Outcome table.

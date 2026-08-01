@@ -51,8 +51,8 @@ reading the test as "no rule, so nothing to save" loses exactly those.
      near-duplicate; ask to disambiguate only when several candidates are
      genuinely plausible.
   2. Create or enrich `.okf/features/<capability-name>.md` from
-     `.okf/templates/feature.template.md`, `verified: unverified`, preserving
-     provenance (quote the original request when there is no PRD/spec source).
+     `.okf/templates/feature.md.tmpl`, `verification_state: unverified` and no
+     `verified` key, preserving provenance (quote the original request when there is no PRD/spec source).
   3. Give each new business rule the next `BR-n` id in that file. Never
      renumber, never reuse.
   4. Delete template sections you have no real content for. Never leave an empty
@@ -100,13 +100,17 @@ procedure. In short:
 3. Act on each verdict: `okf-gap` updates the entry; `code-gap` is a defect to
    fix in code - never sync the entry down to match a bug; `conflict` goes to the
    user, and only becomes `needs-revision` when nobody can decide.
-4. Per entry: set `verified` and `verified_at`, fill `code_paths`, remove this
-   change id from `pending_changes`, append a Verification History row.
+4. Per entry: set `verification_state` and `verified_at`, fill `code_paths`,
+   remove this change id from `pending_changes`, append a Verification History
+   row, and write the spec-shaped `verified[]` attestation for the entry's
+   current content - replace it rather than appending across changes, and delete
+   it on a `conflict` verdict. Never write a `human:` actor on someone's behalf:
+   only the person named can make that attestation true.
 5. Promote durable decisions from `design.md` into `.okf/decisions/`, and fill the
    Decision Promotion table. Every row answers with a path under `.okf/decisions/`
    that resolves, or a reason the decision is change-local - never with silence.
-6. Run `okf index` to regenerate `.okf/INDEX.md`, and fill the Needs Revision
-   Ledger note for anything left at `needs-revision`.
+6. Run `okf index` to regenerate `.okf/index.md` and `.okf/log.md`, and fill the
+   Needs Revision Ledger note for anything left at `needs-revision`.
 7. Run `okf check --archive <change-id>`. It enforces the mechanical half of the
    above - pointers resolve, no placeholders survive, every cited `BR-n` has
    evidence, `pending_changes` is cleared, every decision in `design.md` is
