@@ -35,8 +35,16 @@ An OKF entry is named after the **capability**, never the change:
 Explore has no fixed ending, so there is no automatic capture trigger. Its own
 guardrail still holds: offer, never auto-capture.
 
+The question to answer first is "does this capability have domain knowledge?",
+not "does it have a business rule". Domain knowledge is any of: domain terms,
+actors and roles, data entities, permissions, workflows, or business rules. One
+of them is enough. A `BR-n` is the most visible kind, not the only kind - a
+capability can carry permissions and terms long before any rule is settled, and
+reading the test as "no rule, so nothing to save" loses exactly those.
+
 - When the conversation crystallizes around one concrete, nameable capability -
-  not an open-ended idea - ask: "Save what we discussed to OKF as unverified?"
+  not an open-ended idea - and that capability has domain knowledge, ask:
+  "Save what we discussed to OKF as unverified?"
 - If the user agrees:
   1. Search `.okf/INDEX.md` and `.okf/features/` for an entry covering this
      capability or a close relative. Prefer enriching over creating a
@@ -52,6 +60,20 @@ guardrail still holds: offer, never auto-capture.
   5. Run `okf index`, then `okf check`.
 - If the user declines, keep exploring. Create nothing, and do not ask again
   until a different concrete capability emerges.
+- If the capability has no domain knowledge at all - repository scaffolding,
+  build tooling, a log format - create nothing, and say so naming what makes it
+  domain-free. That is an answer, not a shrug: propose will record it as
+  `no domain knowledge - <reason>` in okf-link.md.
+
+Creating nothing is not the end of the thought. If the conversation settled an
+architectural decision that outlives the change - a layout, a boundary, a
+constraint later capabilities inherit - say so, and make sure it reaches
+`design.md` when the change is proposed. The verification pass promotes it into
+`.okf/decisions/`, and `okf check --archive` refuses to archive a change until
+every decision in `design.md` is accounted for. Never write `.okf/decisions/`
+from explore: the decision is not settled yet, and there is no change id to cite
+as its provenance.
+
 Everything else explore already does - offering to capture design decisions,
 scope changes, or new requirements into proposal/design/specs - is unchanged.
 
