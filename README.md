@@ -22,7 +22,7 @@ first and `okf init` replaces that file afterwards.
 npx openspec init --tools claude,codex,cursor
 
 # 2. This kit (pin a tag - the version is what makes upgrades traceable)
-npm i -D github:danhnguyeen/openspec#v0.2.0
+npm i -D github:danhnguyeen/openspec#v0.3.0
 
 # 3. Install the schema, templates, and the CLAUDE.md / AGENTS.md addendum
 npx okf init
@@ -42,7 +42,7 @@ assumed.
 ## Upgrade
 
 ```bash
-npm i -D github:danhnguyeen/openspec#v0.2.1
+npm i -D github:danhnguyeen/openspec#v0.3.1
 npx okf upgrade --dry-run   # see what would change
 npx okf upgrade
 ```
