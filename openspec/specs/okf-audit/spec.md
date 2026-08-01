@@ -9,9 +9,7 @@ bumps - becomes visible instead of accumulating silently.
 The domain rules behind these requirements live in `.okf/features/okf-audit.md`.
 The `Implements: BR-n` lines cite them rather than restating them, so the rule
 text has exactly one home.
-
 ## Requirements
-
 ### Requirement: Staleness is judged from committed history
 The system SHALL report an entry as `stale` when any path in its `code_paths` has
 a commit strictly newer than the entry's `verified_at` date, and SHALL name the
@@ -70,18 +68,30 @@ Implements: BR-3, BR-8, BR-9
 - **THEN** the report says that path matches nothing, because git will never track those files
 
 ### Requirement: Only verified, active entries are audited
-The system SHALL audit only entries whose `verified` is `verified` and whose
-`status` is not `deprecated`, and SHALL report every other entry as `skipped`.
+The system SHALL audit only entries whose `verification_state` is `verified` and
+whose `status` is not `deprecated`, and SHALL report every other entry as
+`skipped`.
 
-Implements: BR-4, BR-5
+The system SHALL make that selection from `verification_state` alone, and SHALL
+NOT require an entry to carry a `verified[]` attestation in order to be audited.
+
+Implements: BR-4, BR-5, BR-10
 
 #### Scenario: An unverified entry
-- **WHEN** an entry's `verified` is `unverified` or `needs-revision`
+- **WHEN** an entry's `verification_state` is `unverified` or `needs-revision`
 - **THEN** the entry is reported `skipped`, because `okf check` already surfaces it
 
 #### Scenario: A deprecated but verified entry
 - **WHEN** a verified entry has `status: deprecated`
 - **THEN** the entry is reported `skipped`, because its code is expected to diverge
+
+#### Scenario: A verified entry carrying no attestation
+- **WHEN** an entry's `verification_state` is `verified` and it carries no `verified[]`
+- **THEN** the entry is audited normally, because a migrated entry is verified by the workflow even though nobody recorded who vouched for it
+
+#### Scenario: A deprecated entry under the new status vocabulary
+- **WHEN** a verified entry has `status: deprecated` after the vocabulary moves to `draft | stable | deprecated`
+- **THEN** the entry is still reported `skipped`, because `deprecated` is in both vocabularies
 
 ### Requirement: The audit never modifies knowledge
 The system SHALL NOT write to any file under `.okf/` while auditing.
@@ -109,3 +119,4 @@ Implements: BR-1, BR-3
 #### Scenario: Not a git repository
 - **WHEN** the audit runs outside a git repository, or git is unavailable
 - **THEN** the command reports that it could not run and exits non-zero, rather than reporting entries as current
+
