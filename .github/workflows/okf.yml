@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 20
 
-      # Fails when .okf/INDEX.md was hand-edited or left stale.
+      # Fails when .okf/index.md was hand-edited or left stale.
       - name: okf index --check
         run: node bin/okf.mjs index --check
 

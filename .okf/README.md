@@ -58,7 +58,7 @@ entries it touches through a small `okf-link.md` table inside
 - `verified` - checked against the implemented code during a verification pass
   and found accurate.
 - `needs-revision` - checked and a genuine discrepancy remains that a human must
-  settle. Not the same as `unverified`, and it accrues as debt in `INDEX.md`.
+  settle. Not the same as `unverified`, and it accrues as debt in `index.md`.
 
 `pending_changes` is the honest part: an entry can be `verified` overall while a
 new change adds content to it that nobody has checked yet. Any non-empty

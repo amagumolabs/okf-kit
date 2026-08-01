@@ -37,7 +37,7 @@ developer at a terminal, and CI:
 | Unfilled `<placeholder>`, empty table row, empty list item | error |
 | Test status outside `planned` / `skeleton` / `failing` / `passing` | error |
 | A `BR-n` cited by the specs with no Rule Evidence row, or a row with no reference or an invalid verdict | error |
-| `INDEX.md` out of sync with the entries; `needs-revision` missing from the ledger, or older than 30 days | error |
+| `index.md` out of sync with the entries; `needs-revision` missing from the ledger, or older than 30 days | error |
 | `config.yaml` rule containing an unquoted `: ` (YAML reads it as a mapping and the CLI silently drops every rule for that artifact) | error |
 | Missing `okf-kit` marker block, or `CLAUDE.md` and `AGENTS.md` blocks that differ from each other | error |
 | Project running an older kit version than the one installed | warning |
@@ -104,7 +104,7 @@ flowchart TD
         V3{"Verdict"}
         V4["verified<br/>+ verified_at + code_paths"]
         V5["code-gap:<br/>fix the code, not the entry"]
-        V6["needs-revision<br/>(ledger in INDEX.md)"]
+        V6["needs-revision<br/>(ledger in index.md)"]
         V1 --> V3
         V3 -- "match / okf-gap" --> V4
         V3 -- "code-gap" --> V5
@@ -190,7 +190,7 @@ upgrade never touches.
 | --- | --- |
 | `verified: unverified` | From explore, or written while a change was proposed. Not checked against code. |
 | `verified: verified` | Checked against implemented code with evidence, and accurate. |
-| `verified: needs-revision` | Checked, and a real discrepancy remains that a human must settle. Accrues as debt in the `INDEX.md` ledger. |
+| `verified: needs-revision` | Checked, and a real discrepancy remains that a human must settle. Accrues as debt in the `index.md` ledger. |
 | `pending_changes: [...]` | Change ids whose content nobody has checked yet. Non-empty means the entry is not fully trustworthy - even if `verified`. |
 | `verified_at` | Date of the last successful verification pass. |
 | `code_paths` | Globs where the feature actually lives, filled from verification evidence. |

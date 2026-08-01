@@ -887,7 +887,7 @@ projectTest('upgrade --force overwrites a locally edited kit file', (root) => {
 projectTest('upgrade never touches project-owned OKF content', (root) => {
   install(KIT, root, KIT_VERSION, { mode: 'init' });
   write(root, '.okf/features/billing.md', '---\ntitle: billing\n---\n\n# Summary\n\nOurs.\n');
-  write(root, '.okf/INDEX.md', 'our index\n');
+  write(root, '.okf/index.md', 'our index\n');
 
   install(KIT, root, KIT_VERSION, { mode: 'upgrade', force: true });
   assert.match(readF(root, '.okf/features/billing.md'), /Ours\./, 'entries are project-owned');
@@ -979,6 +979,40 @@ projectTest('the version agrees in package.json, both markers, and the README', 
   const install = /openspec#v([\d.]+)/.exec(readme);
   assert.ok(install, 'README has no versioned install command');
   assert.equal(install[1], pkg, `README installs v${install?.[1]}, package.json says ${pkg}`);
+});
+
+/**
+ * `index.md` is a reserved OKF filename and the reserved form is lowercase. On a
+ * case-insensitive filesystem - which is most developer machines - a reference to
+ * `.okf/INDEX.md` resolves anyway, so a stale one survives every local run and
+ * only fails on Linux CI, or worse, silently sends an agent to a path that does
+ * not exist for the team that reads the instruction.
+ *
+ * `test/` is excluded on purpose: it holds a deliberate negative assertion about
+ * the uppercase path, and running the suite on a case-sensitive filesystem is
+ * what checks the tests themselves.
+ */
+projectTest('no kit-owned file points at the pre-v0.3 uppercase index path', () => {
+  const skip = new Set(['.git', 'node_modules', 'test']);
+  const offenders = [];
+
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(e.name)) continue;
+      const abs = path.join(dir, e.name);
+      const rel = path.relative(KIT, abs);
+      if (rel.startsWith('openspec/changes')) continue; // history and other people's changes
+      if (e.isDirectory()) {
+        walk(abs);
+        continue;
+      }
+      if (!/\.(md|mjs|yaml|yml|json)$/.test(e.name)) continue;
+      if (fs.readFileSync(abs, 'utf8').includes('.okf/INDEX.md')) offenders.push(rel);
+    }
+  };
+  walk(KIT);
+
+  assert.deepEqual(offenders, [], 'these still name the uppercase index path, which does not exist on Linux');
 });
 
 projectTest('divergent CLAUDE.md and AGENTS.md blocks are an error', (root) => {
@@ -1502,7 +1536,6 @@ test('unknown decision_status is caught', (root) => {
 
 test('a missing bundle root index is caught', (root) => {
   fs.rmSync(path.join(root, '.okf', 'index.md'), { force: true });
-  fs.rmSync(path.join(root, '.okf', 'INDEX.md'), { force: true });
   assert.ok(
     check(root).findings.some((f) => f.file === '.okf/index.md' && /okf index/.test(f.message)),
     'the reserved lowercase name is where okf_version lives'

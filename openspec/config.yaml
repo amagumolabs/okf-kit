@@ -32,7 +32,7 @@ context: |
 rules:
   okf-link:
     - Name each entry after the OpenSpec capability, never after the change - add-user-auth and fix-auth-mfa are both the user-auth capability.
-    - Search .okf/INDEX.md and .okf/features/ for an existing entry before creating one; enrich rather than create a near-duplicate.
+    - Search .okf/index.md and .okf/features/ for an existing entry before creating one; enrich rather than create a near-duplicate.
     - Use .okf/templates/feature.md.tmpl as the body structure, and delete every section you have no real content for.
     - New entries start as verification_state=unverified, with no `verified` key and code_paths empty.
     - Append this change id to pending_changes and linked_changes; never touch verification_state, verified, or verified_at here.

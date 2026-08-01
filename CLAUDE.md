@@ -46,7 +46,7 @@ reading the test as "no rule, so nothing to save" loses exactly those.
   not an open-ended idea - and that capability has domain knowledge, ask:
   "Save what we discussed to OKF as unverified?"
 - If the user agrees:
-  1. Search `.okf/INDEX.md` and `.okf/features/` for an entry covering this
+  1. Search `.okf/index.md` and `.okf/features/` for an entry covering this
      capability or a close relative. Prefer enriching over creating a
      near-duplicate; ask to disambiguate only when several candidates are
      genuinely plausible.

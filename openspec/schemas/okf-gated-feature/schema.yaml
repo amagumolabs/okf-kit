@@ -24,7 +24,7 @@ artifacts:
          of the request - you will refresh this file once proposal.md settles the
          Capabilities section, and the proposal step will reconcile the two.
 
-      2. For each capability, search `.okf/INDEX.md` and `.okf/features/` for an
+      2. For each capability, search `.okf/index.md` and `.okf/features/` for an
          existing entry. Prefer enriching an existing entry over creating a
          near-duplicate. Only ask the user to disambiguate when there are
          genuinely several plausible candidates.
@@ -60,7 +60,7 @@ artifacts:
       7. Write okf-link.md: one row per capability, mirroring each entry's
          `verification_state` at the time of writing.
 
-      8. Update `.okf/INDEX.md` (Features table) for any new entry.
+      8. Update `.okf/index.md` (Features table) for any new entry.
 
       Do not invent requirements. Inferred details go under Assumptions, and
       unresolved blockers under Open Questions, in the durable entry - never in

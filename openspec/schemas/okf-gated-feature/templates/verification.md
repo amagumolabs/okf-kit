@@ -189,7 +189,7 @@ rows to silence it.
 - [ ] Every `skeleton` / `planned` test row appears in the test-plan Known Gaps with an owner
 - [ ] Rule Evidence table filled with real `file:line` or test references for every BR-n touched
 - [ ] Every linked entry: `verified` set, `verified_at` set, `code_paths` filled, this change id removed from `pending_changes`
-- [ ] `needs-revision` entries (if any) recorded in the `.okf/INDEX.md` Needs Revision Ledger
+- [ ] `needs-revision` entries (if any) recorded in the `.okf/index.md` Needs Revision Ledger
 - [ ] Durable decisions promoted to `.okf/decisions/`, or explicitly skipped with a reason (enforced - see Decision Promotion above)
 - [ ] `okf check --archive <change-id>` exits clean
 - [ ] Proof boundaries are honest and explicit
