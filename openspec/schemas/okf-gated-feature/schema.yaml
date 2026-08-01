@@ -382,8 +382,21 @@ artifacts:
       6. Promote any decision in design.md that outlives this change to
          `.okf/decisions/<YYYY-MM-DD>-<slug>.md` using
          `.okf/templates/decision.template.md`. Archiving buries design.md where
-         nobody will find it. Record in the Decision Promotion table what was
-         promoted, or why nothing was.
+         nobody will find it.
+
+         The Decision Promotion table is ENFORCED by `okf check --archive`, not
+         advisory - the checkbox further down is not what discharges this step.
+         Every row must answer with one of exactly two things: a path under
+         `.okf/decisions/` that resolves, or a stated reason the decision is
+         change-local. A row with neither is an error, and so is a table left
+         empty while design.md has a Decisions section. Only the one-line
+         `Not required because <reason>.` form of design.md waives the table
+         entirely; a design that is empty or of any other shape still needs a row,
+         because an unreadable design must not waive a gate by accident.
+
+         Fewer rows than design.md has decisions is a warning, since counting
+         them is a heuristic. Take it as a prompt to name what you left out, not
+         as a row quota to fill.
 
       7. Regenerate `.okf/INDEX.md`. If any entry ended at `needs-revision`, add
          a row to the Needs Revision Ledger stating what a human must decide.

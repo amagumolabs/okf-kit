@@ -52,7 +52,6 @@ guardrail still holds: offer, never auto-capture.
   5. Run `okf index`, then `okf check`.
 - If the user declines, keep exploring. Create nothing, and do not ask again
   until a different concrete capability emerges.
-
 Everything else explore already does - offering to capture design decisions,
 scope changes, or new requirements into proposal/design/specs - is unchanged.
 
@@ -81,13 +80,16 @@ procedure. In short:
    user, and only becomes `needs-revision` when nobody can decide.
 4. Per entry: set `verified` and `verified_at`, fill `code_paths`, remove this
    change id from `pending_changes`, append a Verification History row.
-5. Promote durable decisions from `design.md` into `.okf/decisions/`.
+5. Promote durable decisions from `design.md` into `.okf/decisions/`, and fill the
+   Decision Promotion table. Every row answers with a path under `.okf/decisions/`
+   that resolves, or a reason the decision is change-local - never with silence.
 6. Run `okf index` to regenerate `.okf/INDEX.md`, and fill the Needs Revision
    Ledger note for anything left at `needs-revision`.
 7. Run `okf check --archive <change-id>`. It enforces the mechanical half of the
    above - pointers resolve, no placeholders survive, every cited `BR-n` has
-   evidence, `pending_changes` is cleared, no `skeleton` test archived without an
-   owner. Fix what it reports; do not explain it away.
+   evidence, `pending_changes` is cleared, every decision in `design.md` is
+   accounted for, no `skeleton` test archived without an owner. Fix what it
+   reports; do not explain it away.
 
 If this pass has not happened, treat it like any other incomplete artifact:
 warn, and get explicit confirmation before archiving anyway. Do not skip it

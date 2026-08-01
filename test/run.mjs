@@ -119,6 +119,53 @@ const OKF_LINK = `# OKF Link
 **Last synced**: 2026-07-30T00:00:00Z
 `;
 
+/**
+ * Two decisions in the house style this repository's own designs use: a bold lead
+ * sentence per paragraph. `countDecisions` must also handle the numbered form, so
+ * UT-014 rewrites this into `1. **Title**` items and asserts the same count.
+ */
+const DESIGN = `## Context
+
+MFA changes how sessions are established.
+
+## Decisions
+
+**Verify the second factor before creating the session.** A session created first
+and downgraded later is a window an attacker can use.
+
+**Keep TOTP as the only factor for now.** SMS delivery is not reliable enough in
+the regions this ships to, and adding it later is additive.
+
+## Risks / Trade-offs
+
+- Lost devices lock admins out -> recovery codes, out of scope here.
+`;
+
+const DECISION = `---
+type: Decision
+title: Verify the second factor before creating the session
+description: The second factor is checked before a session exists, never after.
+date: 2026-07-30
+status: accepted
+affects_features:
+  - user-auth
+sources:
+  - id: change
+    resource: change:add-mfa
+linked_changes:
+  - add-mfa
+---
+
+# Decision
+
+The second factor is verified before a session is created.
+
+# Consequences
+
+Sign-in is one step slower and there is no window in which a half-authenticated
+session exists.
+`;
+
 const SPEC = `## ADDED Requirements
 
 ### Requirement: Admin sessions require MFA
@@ -172,6 +219,13 @@ const VERIFICATION = `# Verification
 | Capability | OKF File | Resulting Verified | verified_at | code_paths Filled | This Change Removed From pending_changes |
 | --- | --- | --- | --- | --- | --- |
 | user-auth | \`.okf/features/user-auth.md\` | verified | 2026-07-30 | yes | yes |
+
+# Decision Promotion
+
+| Decision | Promoted To | Reason If Not Promoted |
+| --- | --- | --- |
+| Verify the second factor before creating the session | \`.okf/decisions/2026-07-30-verify-factor-before-session.md\` | - |
+| Keep TOTP as the only factor for now | - | change-local: revisited by the next factor added, and the spec already states the current factor |
 `;
 
 function scaffold(root) {
@@ -181,8 +235,10 @@ function scaffold(root) {
 
   write(root, 'docs/prd.md', '# PRD\n\nAdmin accounts need a second factor.\n');
   write(root, '.okf/features/user-auth.md', ENTRY);
+  write(root, '.okf/decisions/2026-07-30-verify-factor-before-session.md', DECISION);
   write(root, 'openspec/changes/add-mfa/okf-link.md', OKF_LINK);
   write(root, 'openspec/changes/add-mfa/proposal.md', PROPOSAL);
+  write(root, 'openspec/changes/add-mfa/design.md', DESIGN);
   write(root, 'openspec/changes/add-mfa/specs/user-auth/spec.md', SPEC);
   write(root, 'openspec/changes/add-mfa/test-plan.md', TEST_PLAN);
   write(root, 'openspec/changes/add-mfa/verification.md', VERIFICATION);
@@ -459,6 +515,242 @@ test('archive mode passes on the clean fixture', (root) => {
     [],
     'the happy path must actually be archivable'
   );
+});
+
+// ---------------------------------------------------------------------------
+// Decision promotion, and the scope of the archive gates.
+// Rules: .okf/features/okf-archive-gate.md (BR-1..BR-8).
+// ---------------------------------------------------------------------------
+
+const ARCHIVE = { archiveChange: 'add-mfa' };
+const CHANGE = 'openspec/changes/add-mfa';
+const WAIVER = 'Not required because the change only renames an internal config key.\n';
+
+/** Rewrite the fixture's Decision Promotion section. `rows` are body rows only. */
+function setPromotion(root, rows) {
+  const table = [
+    '# Decision Promotion',
+    '',
+    '| Decision | Promoted To | Reason If Not Promoted |',
+    '| --- | --- | --- |',
+    ...rows,
+    '',
+  ].join('\n');
+  edit(root, `${CHANGE}/verification.md`, (t) => t.replace(/# Decision Promotion[\s\S]*$/, table));
+}
+
+/** Findings whose message mentions the promotion gate, at any level. */
+const promotionFindings = (report) =>
+  report.findings.filter((f) => /[Dd]ecision/.test(f.message)).map((f) => `[${f.level}] ${f.message}`);
+
+/** Make every okf-link row declare no domain knowledge, so nothing resolves. */
+function declareNoDomainKnowledge(root) {
+  edit(root, `${CHANGE}/okf-link.md`, (t) =>
+    t.replace('`.okf/features/user-auth.md`', 'no domain knowledge - this change only renames an internal helper')
+  );
+}
+
+test('UT-013 the clean fixture stays archivable with a satisfied promotion table', (root) => {
+  assert.deepEqual(promotionFindings(check(root, ARCHIVE)), [], 'a fully accounted-for change must stay clean');
+});
+
+test('UT-012 entry-scoped gates stay silent when no okf-link row resolves', (root) => {
+  declareNoDomainKnowledge(root);
+  // Both entry-scoped tables genuinely emptied, so a gate still keyed on the wrong
+  // thing would fire here. Written out rather than patched, because a replace that
+  // silently matches nothing would make this guard pass without guarding.
+  write(
+    root,
+    `${CHANGE}/verification.md`,
+    [
+      '# Verification',
+      '',
+      '# Rule Evidence',
+      '',
+      '| Rule (BR-n) | Capability | Evidence (file:line or test name) | Verdict | Action Taken |',
+      '| --- | --- | --- | --- | --- |',
+      '',
+      '# Entry Outcome',
+      '',
+      '| Capability | OKF File | Resulting Verified | verified_at | code_paths Filled | This Change Removed From pending_changes |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '',
+      '# Decision Promotion',
+      '',
+      '| Decision | Promoted To | Reason If Not Promoted |',
+      '| --- | --- | --- |',
+      '| Verify the second factor first | - | change-local: sequencing only |',
+      '| Keep TOTP as the only factor | - | change-local: the spec already states the current factor |',
+      '',
+    ].join('\n')
+  );
+  const text = readF(root, `${CHANGE}/verification.md`);
+  assert.ok(!/\| BR-1 \|/.test(text) && !/\| user-auth \|/.test(text), 'the fixture must really be empty');
+
+  const report = check(root, ARCHIVE);
+  assert.equal(find(report, /Rule Evidence table is empty/).length, 0, 'there is no entry to have evidence about');
+  assert.equal(find(report, /no Entry Outcome row/).length, 0, 'there is no entry to have an outcome');
+  assert.deepEqual(promotionFindings(report), [], 'the change-scoped gate is satisfied by the two rows');
+});
+
+test('UT-001 archive mode blocks a design with decisions and an empty promotion table', (root) => {
+  setPromotion(root, []);
+  assertError(check(root, ARCHIVE), /Decision Promotion table is empty/, 'decisions must not be buried silently');
+});
+
+test('NEG-002 a promotion table holding only the template blank row counts as empty', (root) => {
+  setPromotion(root, ['|  |  |  |']);
+  assertError(check(root, ARCHIVE), /Decision Promotion table is empty/, 'a blank row is not an accounted-for row');
+});
+
+test('UT-002 a design waived with a reason needs no promotion row', (root) => {
+  write(root, `${CHANGE}/design.md`, WAIVER);
+  setPromotion(root, []);
+  assert.deepEqual(promotionFindings(check(root, ARCHIVE)), [], 'the waiver must stay usable');
+});
+
+test('UT-007 an unrecognised design shape requires a promotion row', (root) => {
+  write(root, `${CHANGE}/design.md`, '## Context\n\nSome half-written notes that stop mid-sen\n');
+  setPromotion(root, []);
+  assertError(check(root, ARCHIVE), /cannot be waived/, 'an unknown shape must not waive the gate');
+});
+
+test('NEG-003 an empty design.md requires a promotion row', (root) => {
+  write(root, `${CHANGE}/design.md`, '');
+  setPromotion(root, []);
+  assertError(check(root, ARCHIVE), /cannot be waived/, 'an empty design is the shape the old behaviour waived');
+});
+
+test('UT-003 a promotion row pointing at a real decision file is accepted', (root) => {
+  setPromotion(root, [
+    '| Verify the second factor first | `.okf/decisions/2026-07-30-verify-factor-before-session.md` | - |',
+    '| Keep TOTP as the only factor | - | change-local: the spec already states the current factor |',
+  ]);
+  assert.deepEqual(promotionFindings(check(root, ARCHIVE)), [], 'a resolving path is a promotion');
+});
+
+test('UT-004 a promotion row pointing at a missing decision file is caught', (root) => {
+  setPromotion(root, [
+    '| Verify the second factor first | `.okf/decisions/2026-07-30-not-written-yet.md` | - |',
+    '| Keep TOTP as the only factor | - | change-local: the spec already states the current factor |',
+  ]);
+  assertError(check(root, ARCHIVE), /does not exist on disk/, 'a mistyped path must not pass as a promotion');
+});
+
+test('NEG-001 a promotion target outside .okf/decisions/ is caught', (root) => {
+  setPromotion(root, [
+    '| Verify the second factor first | `docs/decisions/mfa.md` | - |',
+    '| Keep TOTP as the only factor | - | change-local: the spec already states the current factor |',
+  ]);
+  assertError(check(root, ARCHIVE), /not under `?\.okf\/decisions/, 'promoted elsewhere is not promoted');
+});
+
+test('UT-005 a promotion row with a reason and no target is accepted', (root) => {
+  setPromotion(root, [
+    '| Verify the second factor first | - | change-local: only governs the order of this change own commits |',
+    '| Keep TOTP as the only factor | - | change-local: the spec already states the current factor |',
+  ]);
+  assert.deepEqual(promotionFindings(check(root, ARCHIVE)), [], 'a stated reason discharges a row');
+});
+
+test('UT-006 a promotion row with neither a target nor a reason is caught', (root) => {
+  setPromotion(root, [
+    '| Verify the second factor first | - | - |',
+    '| Keep TOTP as the only factor | - | change-local: the spec already states the current factor |',
+  ]);
+  assertError(check(root, ARCHIVE), /neither a promoted path nor a reason/, 'silence is not one of the two answers');
+});
+
+test('UT-009 a row per decision reports nothing', (root) => {
+  assert.deepEqual(promotionFindings(check(root, ARCHIVE)), [], 'two decisions, two rows, nothing to say');
+});
+
+test('UT-008 fewer promotion rows than decisions is a warning, not an error', (root) => {
+  setPromotion(root, ['| Verify the second factor first | - | change-local: sequencing only |']);
+  const report = check(root, ARCHIVE);
+  assert.equal(find(report, /1 row\(s\) for 2 decision\(s\)/, 'warn').length, 1, 'under-accounting must warn');
+  assert.deepEqual(
+    report.errors.map((f) => f.message),
+    [],
+    'a heuristic count must never produce an error'
+  );
+});
+
+test('UT-014 bold-paragraph and numbered decision syntaxes count alike', (root) => {
+  const numbered = `## Decisions
+
+1. **Verify the second factor before creating the session**
+   - A downgraded session is a window an attacker can use.
+2. **Keep TOTP as the only factor for now**
+   - SMS delivery is not reliable enough yet.
+3. **Store recovery codes hashed**
+   - They are credentials, not metadata.
+`;
+  const paragraphs = `## Decisions
+
+**Verify the second factor before creating the session.** A downgraded session is
+a window an attacker can use.
+
+**Keep TOTP as the only factor for now.** SMS delivery is not reliable enough yet.
+
+**Store recovery codes hashed.** They are credentials, not metadata.
+`;
+  setPromotion(root, ['| Verify the second factor first | - | change-local: sequencing only |']);
+
+  for (const [style, text] of [['numbered', numbered], ['paragraphs', paragraphs]]) {
+    write(root, `${CHANGE}/design.md`, text);
+    assert.equal(
+      find(check(root, ARCHIVE), /1 row\(s\) for 3 decision\(s\)/, 'warn').length,
+      1,
+      `${style} style must count three decisions`
+    );
+  }
+});
+
+test('NEG-004 a Decisions section with no recognisable decision counts zero', (root) => {
+  write(root, `${CHANGE}/design.md`, '## Decisions\n\nWe talked it over and kept the existing approach.\n');
+  setPromotion(root, ['| Kept the existing approach | - | change-local: nothing new was decided |']);
+  const report = check(root, ARCHIVE);
+  assert.equal(find(report, /row\(s\) for/, 'warn').length, 0, 'zero counted decisions cannot be under-accounted');
+  assert.deepEqual(report.errors.map((f) => f.message), [], 'a satisfied row is still a satisfied row');
+});
+
+test('UT-010 a change declaring only "no domain knowledge" is still gated on decisions', (root) => {
+  declareNoDomainKnowledge(root);
+  setPromotion(root, []);
+  assertError(
+    check(root, ARCHIVE),
+    /Decision Promotion table is empty/,
+    'the escape hatch waives one entry, not every gate'
+  );
+});
+
+test('UT-011 a change with no okf-link.md reports the missing artifact, not a promotion gap', (root) => {
+  fs.rmSync(path.join(root, CHANGE, 'okf-link.md'));
+  const report = check(root, ARCHIVE);
+  assertError(report, /no okf-link\.md/, 'the mandatory gate artifact is its own finding');
+  assert.deepEqual(promotionFindings(report), [], 'a missing gate artifact must not be re-reported as a promotion gap');
+});
+
+test('UT-015 the waiver phrase the gate matches occurs in the schema own design rule', (root) => {
+  const schema = readF(KIT, 'openspec/schemas/okf-gated-feature/schema.yaml');
+  const designRule = schema.slice(schema.indexOf('- id: design'), schema.indexOf('- id: test-cases'));
+  assert.match(
+    designRule,
+    /Not required because/,
+    'the gate recognises a waiver by this phrase; if the schema stops mandating it, the gate silently waives every change'
+  );
+  void root;
+});
+
+test('E2E-001 a promotion warning alone exits 0 and reports ready to archive', (root) => {
+  setPromotion(root, ['| Verify the second factor first | - | change-local: sequencing only |']);
+  const out = execFileSync('node', [path.join(KIT, 'bin/okf.mjs'), 'check', '--archive', 'add-mfa', '--root', root], {
+    encoding: 'utf8',
+  });
+  // execFileSync throws on a non-zero exit, so reaching here is the exit-0 assertion.
+  assert.match(out, /okf check: 0 error\(s\), 1 warning\(s\)/, 'the only finding must be the warning');
+  assert.match(out, /ready to archive/, 'a warning must not block the archive');
 });
 
 test('okf index is idempotent and detects staleness', (root) => {

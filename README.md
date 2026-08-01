@@ -68,6 +68,7 @@ keep your version and accept that it drifts. What upgrade decides from is
 | Command | Purpose |
 | --- | --- |
 | `okf check` | Entries, pointers, rule ids, evidence, test statuses, index, debt ledger, kit version skew |
+| `okf check` (archive mode) | Also: every decision in `design.md` accounted for in the Decision Promotion table, by a resolving path under `.okf/decisions/` or a stated reason |
 | `okf check --archive <change-id>` | The stricter pre-archive set - run it before archiving |
 | `okf check --json` | Same findings, machine-readable |
 | `okf audit` | Report entries whose declared `code_paths` changed after they were verified. Reports only, never edits knowledge |

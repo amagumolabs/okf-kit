@@ -69,7 +69,7 @@ rules:
     - Must fill the Rule Evidence table with a real file:line or test name for every BR-n touched - a checkbox is not evidence.
     - 'Apply the verdicts honestly: okf-gap updates the entry, code-gap is a defect to fix in code (never sync the entry down to match a bug), conflict goes to a human.'
     - 'For every linked entry: set verified and verified_at, fill code_paths, remove this change id from pending_changes, append a Verification History row.'
-    - Promote durable decisions from design.md into .okf/decisions/ before archive buries them, or record why not.
+    - 'Promote durable decisions from design.md into .okf/decisions/ before archive buries them. The Decision Promotion table is enforced: each row answers with a resolving path under .okf/decisions/ or a reason the decision is change-local, and only design.md''s one-line "Not required because ..." form waives the table.'
     - 'Validate every capability spec synced into openspec/specs/ with `openspec validate <capability> --strict`, not just the change - a valid change can still assemble an invalid baseline spec.'
     - Regenerate .okf/INDEX.md with `okf index`, and fill the Needs Revision Ledger note for any entry left at needs-revision.
     - Run `okf check --archive <change-id>` and record its output; it must exit clean before archive readiness is claimed.

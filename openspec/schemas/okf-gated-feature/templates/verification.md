@@ -150,8 +150,24 @@ One row per BR-n in every linked entry that this change touches. Verdict values:
 <!--
 If design.md holds a decision that outlives this change, copy it to
 `.okf/decisions/<YYYY-MM-DD>-<slug>.md` now - archiving buries design.md under
-`openspec/changes/archive/` where nobody will find it. Skip with a reason if
-there is no such decision.
+`openspec/changes/archive/` where nobody will find it.
+
+This table is enforced by `okf check --archive`. Each row answers with exactly one
+of two things:
+
+- **Promoted To**: a path under `.okf/decisions/` that resolves on disk. A path
+  anywhere else, or one that does not exist, is an error - a decision filed
+  somewhere else is buried just the same.
+- **Reason If Not Promoted**: why the decision is change-local, i.e. it only
+  governed how this change was carried out and means nothing after archive.
+
+Write `-` in the column you are not using. A row with neither is an error, and so
+is an empty table while design.md has a Decisions section. Only design.md's
+one-line `Not required because <reason>.` form waives this table.
+
+Fewer rows than design.md has decisions is a warning, because counting them is a
+heuristic. It is a prompt to name what you left out, not a quota - do not invent
+rows to silence it.
 -->
 
 | Decision | Promoted To | Reason If Not Promoted |
@@ -174,6 +190,6 @@ there is no such decision.
 - [ ] Rule Evidence table filled with real `file:line` or test references for every BR-n touched
 - [ ] Every linked entry: `verified` set, `verified_at` set, `code_paths` filled, this change id removed from `pending_changes`
 - [ ] `needs-revision` entries (if any) recorded in the `.okf/INDEX.md` Needs Revision Ledger
-- [ ] Durable decisions promoted to `.okf/decisions/`, or explicitly skipped with a reason
+- [ ] Durable decisions promoted to `.okf/decisions/`, or explicitly skipped with a reason (enforced - see Decision Promotion above)
 - [ ] `okf check --archive <change-id>` exits clean
 - [ ] Proof boundaries are honest and explicit
