@@ -15,6 +15,7 @@ import { audit } from '../lib/audit.mjs';
 import { check } from '../lib/check.mjs';
 import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
 import { install, payloadPaths } from '../lib/install.mjs';
+import { migrate } from '../lib/migrate.mjs';
 
 const KIT = path.resolve(import.meta.dirname, '..');
 
@@ -63,9 +64,14 @@ const ENTRY = `---
 type: Feature Knowledge
 title: user-auth
 description: How users authenticate and what MFA requires.
-status: active
-verified: verified
+status: stable
+verification_state: verified
 verified_at: 2026-07-30
+verified:
+  - by: anthropic/claude-opus-5
+    at: 2026-07-30T00:00:00Z
+  - by: human:danh
+    at: 2026-07-30T09:00:00Z
 criticality: high
 pending_changes: []
 code_paths: [src/auth/**]
@@ -77,7 +83,7 @@ sources:
 linked_changes:
   - add-mfa
 generated:
-  by: test
+  by: anthropic/claude-opus-5
   at: 2026-07-30T00:00:00Z
 ---
 
@@ -146,7 +152,8 @@ type: Decision
 title: Verify the second factor before creating the session
 description: The second factor is checked before a session exists, never after.
 date: 2026-07-30
-status: accepted
+status: stable
+decision_status: accepted
 affects_features:
   - user-auth
 sources:
@@ -455,19 +462,19 @@ test('evidence row with no reference is caught', (root) => {
 });
 
 test('INDEX out of sync with the entries is caught', (root) => {
-  edit(root, '.okf/INDEX.md', (t) => t.replace(/\| \[user-auth\].*\n/, ''));
+  edit(root, '.okf/index.md', (t) => t.replace(/\| \[user-auth\].*\n/, ''));
   assertError(check(root), /does not list "user-auth"/, 'a stale index must be reported');
 });
 
 test('needs-revision without a ledger row is caught', (root) => {
-  edit(root, '.okf/features/user-auth.md', (t) => t.replace('verified: verified', 'verified: needs-revision'));
+  edit(root, '.okf/features/user-auth.md', (t) => t.replace('verification_state: verified', 'verification_state: needs-revision'));
   // index intentionally not regenerated
   assertError(check(root), /no Needs Revision Ledger row/, 'debt must be visible');
 });
 
 test('needs-revision older than 30 days is an error', (root) => {
   edit(root, '.okf/features/user-auth.md', (t) =>
-    t.replace('verified: verified', 'verified: needs-revision').replace('verified_at: 2026-07-30', 'verified_at: 2020-01-01')
+    t.replace('verification_state: verified', 'verification_state: needs-revision').replace('verified_at: 2026-07-30', 'verified_at: 2020-01-01')
   );
   writeIndex(root, { today: '2020-01-01' });
   assertError(check(root), /has been needs-revision for \d+ days/, 'stale debt must escalate');
@@ -482,7 +489,7 @@ test('archive mode blocks when pending_changes still holds the change', (root) =
 });
 
 test('archive mode blocks an unverified entry', (root) => {
-  edit(root, '.okf/features/user-auth.md', (t) => t.replace('verified: verified', 'verified: unverified'));
+  edit(root, '.okf/features/user-auth.md', (t) => t.replace('verification_state: verified', 'verification_state: unverified'));
   writeIndex(root, { today: '2026-07-30' });
   const report = check(root, { archiveChange: 'add-mfa' });
   assertError(report, /still unverified while archiving/, 'unverified must not reach the archive');
@@ -757,18 +764,18 @@ test('okf index is idempotent and detects staleness', (root) => {
   const first = buildIndex(root, { today: '2026-07-30' });
   const second = buildIndex(root, { today: '2026-07-30' });
   assert.equal(first, second, 'generation must be deterministic');
-  assert.equal(first, readF(root, '.okf/INDEX.md'), 'scaffold wrote the generated form');
-  assert.match(first, /\| \[user-auth\]\(features\/user-auth\.md\) \| verified \| 2026-07-30 \| - \| high \| active \|/);
+  assert.equal(first, readF(root, '.okf/index.md'), 'scaffold wrote the generated form');
+  assert.match(first, /\| \[user-auth\]\(features\/user-auth\.md\) \| verified \| 2026-07-30 \| - \| high \| stable \|/);
 });
 
 test('okf index keeps hand-written ledger notes across regeneration', (root) => {
-  edit(root, '.okf/features/user-auth.md', (t) => t.replace('verified: verified', 'verified: needs-revision'));
+  edit(root, '.okf/features/user-auth.md', (t) => t.replace('verification_state: verified', 'verification_state: needs-revision'));
   writeIndex(root, { today: '2026-07-30' });
-  edit(root, '.okf/INDEX.md', (t) =>
+  edit(root, '.okf/index.md', (t) =>
     t.replace(/\| user-auth \| 2026-07-30 \| add-mfa \| - \|/, '| user-auth | 2026-07-30 | add-mfa | decide if MFA applies to service accounts |')
   );
   writeIndex(root, { today: '2026-08-15' });
-  const text = readF(root, '.okf/INDEX.md');
+  const text = readF(root, '.okf/index.md');
   assert.match(text, /decide if MFA applies to service accounts/, 'the note must survive');
   assert.match(text, /\| user-auth \| 2026-07-30 \|/, 'the original Since date must survive');
 });
@@ -805,8 +812,8 @@ projectTest('init installs the payload, dirs, manifest, and addendum', (root) =>
     'openspec/schemas/okf-gated-feature/schema.yaml',
     'openspec/schemas/okf-gated-feature/templates/okf-link.md',
     '.okf/README.md',
-    '.okf/templates/feature.template.md',
-    '.okf/templates/decision.template.md',
+    '.okf/templates/feature.md.tmpl',
+    '.okf/templates/decision.md.tmpl',
     '.okf/.okf-kit.json',
     'CLAUDE.md',
     'AGENTS.md',
@@ -843,23 +850,23 @@ projectTest('upgrade refuses without a manifest', (root) => {
 projectTest('upgrade replaces an untouched kit file', (root) => {
   install(KIT, root, KIT_VERSION, { mode: 'init' });
   // simulate an older kit version shipping different content
-  write(root, '.okf/templates/feature.template.md', 'old kit content\n');
+  write(root, '.okf/templates/feature.md.tmpl', 'old kit content\n');
   const manifest = JSON.parse(readF(root, '.okf/.okf-kit.json'));
-  manifest.files['.okf/templates/feature.template.md'] = crypto
+  manifest.files['.okf/templates/feature.md.tmpl'] = crypto
     .createHash('sha256')
     .update('old kit content\n')
     .digest('hex');
   write(root, '.okf/.okf-kit.json', JSON.stringify(manifest, null, 2));
 
   const res = install(KIT, root, KIT_VERSION, { mode: 'upgrade' });
-  const acted = res.actions.find((a) => a.rel === '.okf/templates/feature.template.md');
+  const acted = res.actions.find((a) => a.rel === '.okf/templates/feature.md.tmpl');
   assert.equal(acted.action, 'update');
-  assert.match(readF(root, '.okf/templates/feature.template.md'), /HOW TO USE THIS TEMPLATE/);
+  assert.match(readF(root, '.okf/templates/feature.md.tmpl'), /HOW TO USE THIS TEMPLATE/);
 });
 
 projectTest('upgrade leaves a locally edited kit file alone', (root) => {
   install(KIT, root, KIT_VERSION, { mode: 'init' });
-  const target = '.okf/templates/feature.template.md';
+  const target = '.okf/templates/feature.md.tmpl';
   write(root, target, 'our team rewrote this template\n');
 
   const res = install(KIT, root, KIT_VERSION, { mode: 'upgrade' });
@@ -870,7 +877,7 @@ projectTest('upgrade leaves a locally edited kit file alone', (root) => {
 
 projectTest('upgrade --force overwrites a locally edited kit file', (root) => {
   install(KIT, root, KIT_VERSION, { mode: 'init' });
-  const target = '.okf/templates/feature.template.md';
+  const target = '.okf/templates/feature.md.tmpl';
   write(root, target, 'our team rewrote this template\n');
 
   install(KIT, root, KIT_VERSION, { mode: 'upgrade', force: true });
@@ -884,7 +891,7 @@ projectTest('upgrade never touches project-owned OKF content', (root) => {
 
   install(KIT, root, KIT_VERSION, { mode: 'upgrade', force: true });
   assert.match(readF(root, '.okf/features/billing.md'), /Ours\./, 'entries are project-owned');
-  assert.equal(readF(root, '.okf/INDEX.md'), 'our index\n', 'INDEX.md is generated, not installed');
+  assert.equal(readF(root, '.okf/index.md'), 'our index\n', 'INDEX.md is generated, not installed');
 });
 
 projectTest('upgrade preserves project text outside the markers', (root) => {
@@ -1025,13 +1032,13 @@ function gitRepo(fn) {
   return { root, git, commit, ignore, cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
 }
 
-function entry(name, { verified = 'verified', verifiedAt = '2026-07-20', status = 'active', codePaths = [] } = {}) {
+function entry(name, { verified = 'verified', verifiedAt = '2026-07-20', status = 'stable', codePaths = [] } = {}) {
   return `---
 type: Feature Knowledge
 title: ${name}
 description: Test entry for the audit.
 status: ${status}
-verified: ${verified}
+verification_state: ${verified}
 verified_at: ${verifiedAt}
 criticality: normal
 pending_changes: []
@@ -1253,6 +1260,471 @@ auditTest('UT-012 audit flags a declared path that matches nothing', ({ root, co
   const r = byName(audit(root), 'user-auth');
   assert.ok(r, 'the entry must appear in the results');
   assert.deepEqual(r.missingPaths, ['gone/**'], 'a vanished path usually means the code moved');
+});
+
+// ---------------------------------------------------------------------------
+// okf-spec-conformance
+//
+// The bundle format contract (OKF v0.2), the migration command, and the audit's
+// selection field. `entry()` above stays on the pre-migration shape on purpose -
+// `legacyEntry()` is its stable twin for the migration tests, so those tests do
+// not start failing the day `entry()` moves.
+// ---------------------------------------------------------------------------
+
+const ATTESTATION = [{ by: 'anthropic/claude-opus-5', at: '2026-07-30T00:00:00Z' }];
+
+/** A feature entry in the post-conformance shape. */
+function okfEntry(name, {
+  verificationState = 'verified',
+  verifiedAt = '2026-07-30',
+  attestations = ATTESTATION,
+  status = 'stable',
+  criticality = 'normal',
+  codePaths = ['src/**'],
+  generatedBy = 'anthropic/claude-opus-5',
+} = {}) {
+  const lines = [
+    '---',
+    'type: Feature Knowledge',
+    `title: ${name}`,
+    'description: Test entry for the bundle format.',
+    `status: ${status}`,
+    `verification_state: ${verificationState}`,
+  ];
+  if (verifiedAt !== null) lines.push(`verified_at: ${verifiedAt}`);
+  if (attestations !== null) {
+    lines.push('verified:');
+    for (const a of attestations) {
+      lines.push(`  - by: ${a.by}`);
+      if (a.at !== undefined) lines.push(`    at: ${a.at}`);
+    }
+  }
+  lines.push(`criticality: ${criticality}`);
+  lines.push('pending_changes: []');
+  lines.push(`code_paths: [${codePaths.join(', ')}]`);
+  lines.push('generated:');
+  lines.push(`  by: ${generatedBy}`);
+  lines.push('  at: 2026-07-30T00:00:00Z');
+  lines.push('---', '', '# Summary', '', 'An entry used by the bundle format tests.', '');
+  return lines.join('\n');
+}
+
+/** A feature entry exactly as it looked before this change. Frozen on purpose. */
+function legacyEntry(name, { verified = 'verified', verifiedAt = '2026-07-30' } = {}) {
+  return `---
+type: Feature Knowledge
+title: ${name}
+description: Test entry written before the conformance change.
+status: active
+verified: ${verified}
+verified_at: ${verifiedAt}
+criticality: normal
+pending_changes: []
+code_paths: [src/**]
+---
+
+# Summary
+
+Body content that migration must leave byte-identical.
+
+| Date | Change | Verified Status | Evidence / Notes |
+| --- | --- | --- | --- |
+| 2026-07-30 | add-mfa | verified | BR-1 traced to src/auth.js:12 |
+`;
+}
+
+const AUTH = '.okf/features/user-auth.md';
+/** Findings attached to one file, so unrelated fixture noise cannot mask a result. */
+const forFile = (report, rel) => report.findings.map((f) => `[${f.level}] ${f.file}: ${f.message}`).filter((s) => s.includes(rel));
+
+function assertWarn(report, re, msg) {
+  const hits = find(report, re, 'warn');
+  assert.ok(
+    hits.length > 0,
+    `${msg}\nexpected a WARNING matching ${re}\ngot:\n` +
+      report.findings.map((f) => `  [${f.level}] ${f.file}: ${f.message}`).join('\n')
+  );
+  assert.equal(find(report, re, 'error').length, 0, `${msg}\nthis must never be an error`);
+}
+
+// --- verification_state vocabulary and the freed `verified` key --------------
+
+test('a well-formed entry in the new shape is clean', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { criticality: 'high', attestations: [...ATTESTATION, { by: 'human:danh', at: '2026-07-30T09:00:00Z' }] }));
+  assert.deepEqual(forFile(check(root), AUTH), [], 'the new shape must produce no findings');
+});
+
+test('unknown verification_state is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { verificationState: 'reviewed' }));
+  assertError(check(root), /verification_state: "reviewed"/, 'the vocabulary must be closed');
+});
+
+test("a scalar in the specification's verified key is caught", (root) => {
+  write(root, AUTH, legacyEntry('user-auth'));
+  assertError(check(root), /holds a scalar/, 'a scalar in `verified` must point at the right field');
+});
+
+// --- the coupling between state and attestation ------------------------------
+
+test('verified without an attestation is a warning, not an error', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { attestations: null }));
+  assertWarn(check(root), /attestation/, 'a migrated entry must not be blocked');
+});
+
+test('verified_at disagreeing with the newest attestation is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { verifiedAt: '2026-07-30', attestations: [{ by: 'anthropic/claude-opus-5', at: '2026-08-01T00:00:00Z' }] }));
+  const report = check(root);
+  assertError(report, /2026-07-30/, 'the error must name the declared date');
+  assertError(report, /2026-08-01/, 'the error must name the attested date');
+});
+
+test('needs-revision still carrying an attestation is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { verificationState: 'needs-revision' }));
+  assertError(check(root), /key is present/, 'nobody vouches for content under revision');
+});
+
+test('unverified still carrying an attestation is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { verificationState: 'unverified', verifiedAt: null }));
+  assertError(check(root), /key is present/, 'an unverified entry must read as unverified to a consumer');
+});
+
+test('an empty attestation list counts as no attestation', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { attestations: [] }));
+  assertWarn(check(root), /attestation/, 'an empty list is not an attestation');
+});
+
+test('verified_at matching the older of two attestations is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', {
+    verifiedAt: '2026-07-30',
+    attestations: [
+      { by: 'anthropic/claude-opus-5', at: '2026-07-30T00:00:00Z' },
+      { by: 'human:danh', at: '2026-08-02T00:00:00Z' },
+    ],
+  }));
+  assertError(check(root), /verified_at/, 'the comparison is against the newest attestation');
+});
+
+test('a bare attestation mapping is read as a one-element list', (root) => {
+  const text = okfEntry('user-auth').replace(
+    'verified:\n  - by: anthropic/claude-opus-5\n    at: 2026-07-30T00:00:00Z',
+    'verified:\n  by: anthropic/claude-opus-5\n  at: 2026-07-30T00:00:00Z'
+  );
+  write(root, AUTH, text);
+  assert.deepEqual(forFile(check(root), AUTH), [], 'the specification requires consumers to accept this form');
+});
+
+// --- human review is reported, never proven ----------------------------------
+
+test('high criticality verified without a human actor is a warning', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { criticality: 'high' }));
+  assertWarn(check(root), /human:/, 'absence is reportable; forcing it would manufacture forged sign-offs');
+});
+
+test('high criticality with a human actor is clean', (root) => {
+  write(root, AUTH, okfEntry('user-auth', {
+    criticality: 'high',
+    attestations: [...ATTESTATION, { by: 'human:danh', at: '2026-07-30T09:00:00Z' }],
+  }));
+  assert.deepEqual(forFile(check(root), AUTH), [], 'the kit makes no claim about who wrote the line');
+});
+
+test('normal criticality without a human actor is clean', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { criticality: 'normal' }));
+  assert.deepEqual(forFile(check(root), AUTH), [], 'only high criticality is worth reporting');
+});
+
+// --- every non-reserved bundle file is a concept document --------------------
+
+test('a bundle markdown file without frontmatter is caught', (root) => {
+  write(root, '.okf/notes.md', '# Notes\n\nSomething someone dropped here.\n');
+  assertError(check(root), /type/, 'a file with no frontmatter is not a concept document');
+});
+
+test('reserved index.md and log.md are not concept documents', (root) => {
+  write(root, '.okf/log.md', '# Log\n\n## 2026-07-30\n\n**Update** something happened.\n');
+  assert.equal(
+    find(check(root), /type/).filter((f) => /log\.md|index\.md/.test(f.file)).length,
+    0,
+    'reserved filenames carry structure, not concepts'
+  );
+});
+
+// --- actor convention ---------------------------------------------------------
+
+test('a bare actor name is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { generatedBy: 'claude-opus-5' }));
+  assertError(check(root), /producer/, 'an actor outside the convention silently loses its tier');
+});
+
+test('a producer-qualified actor is clean', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { generatedBy: 'anthropic/claude-opus-5' }));
+  assert.equal(find(check(root), /producer/).length, 0, 'the conventional form must be accepted');
+});
+
+test('a human actor is accepted and counts as human review', (root) => {
+  write(root, AUTH, okfEntry('user-auth', {
+    criticality: 'high',
+    attestations: [{ by: 'human:danh', at: '2026-07-30T00:00:00Z' }],
+  }));
+  assert.deepEqual(forFile(check(root), AUTH), [], 'a human attestation reaches the human-reviewed tier');
+});
+
+test('an attestation missing by is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { attestations: [{ by: '', at: '2026-07-30T00:00:00Z' }] }));
+  assertError(check(root), /\bby\b/, 'the specification makes by required when the family is present');
+});
+
+test('an attestation with a malformed at is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { attestations: [{ by: 'anthropic/claude-opus-5', at: 'yesterday' }] }));
+  assertError(check(root), /\bat\b/, 'at is an ISO 8601 datetime');
+});
+
+// --- status vocabulary --------------------------------------------------------
+
+test('the previous status vocabulary is caught', (root) => {
+  write(root, AUTH, okfEntry('user-auth', { status: 'active' }));
+  assertError(check(root), /draft \| stable \| deprecated/, 'status uses the specification vocabulary');
+});
+
+test('a decision separating status from decision_status is clean', (root) => {
+  const file = '.okf/decisions/2026-07-30-verify-factor-before-session.md';
+  edit(root, file, (t) => t.replace('status: accepted', 'status: stable\ndecision_status: accepted'));
+  assert.deepEqual(forFile(check(root), file), [], 'the two lifecycles are separate keys');
+});
+
+test('unknown decision_status is caught', (root) => {
+  const file = '.okf/decisions/2026-07-30-verify-factor-before-session.md';
+  edit(root, file, (t) => t.replace('status: accepted', 'status: stable\ndecision_status: retired'));
+  assertError(check(root), /decision_status: "retired"/, 'the decision vocabulary is closed');
+});
+
+// --- the bundle root index and okf_version ------------------------------------
+
+test('a missing bundle root index is caught', (root) => {
+  fs.rmSync(path.join(root, '.okf', 'index.md'), { force: true });
+  fs.rmSync(path.join(root, '.okf', 'INDEX.md'), { force: true });
+  assert.ok(
+    check(root).findings.some((f) => f.file === '.okf/index.md' && /okf index/.test(f.message)),
+    'the reserved lowercase name is where okf_version lives'
+  );
+});
+
+test('the regenerated index carries okf_version', (root) => {
+  writeIndex(root, { today: '2026-07-30' });
+  assert.match(readF(root, '.okf/index.md'), /okf_version/, 'the bundle declares the version it targets');
+});
+
+test('an index without okf_version is caught', (root) => {
+  edit(root, '.okf/index.md', (t) => t.replace(/^---[\s\S]*?---\n/, ''));
+  assertError(check(root), /okf_version/, 'a bundle that declares no version cannot be read safely');
+});
+
+test('the index Features table reads verification_state', (root) => {
+  write(root, AUTH, okfEntry('user-auth'));
+  writeIndex(root, { today: '2026-07-30' });
+  assert.match(readF(root, '.okf/index.md'), /\| verified \|/, 'the table mirrors the renamed field');
+});
+
+// --- the generated log --------------------------------------------------------
+
+test('the generated log lists the newest date first', (root) => {
+  edit(root, AUTH, (t) => t + `
+# Verification History
+
+| Date | Change | Verified Status | Evidence / Notes |
+| --- | --- | --- | --- |
+| 2026-07-30 | add-mfa | verified | BR-1 traced to src/auth.js:12 |
+| 2026-08-01 | add-sso | verified | BR-2 traced to src/sso.js:40 |
+`);
+  writeIndex(root, { today: '2026-08-01' });
+  const log = readF(root, '.okf/log.md');
+  assert.ok(log.indexOf('2026-08-01') < log.indexOf('2026-07-30'), 'newest first');
+});
+
+test('a log with no verification history is still written', (root) => {
+  write(root, AUTH, okfEntry('user-auth'));
+  writeIndex(root, { today: '2026-07-30' });
+  assert.ok(fs.existsSync(path.join(root, '.okf', 'log.md')), 'an empty log is still a log');
+});
+
+// --- the audit selects by verification_state ----------------------------------
+
+auditTest('a verified entry with no attestation is still audited', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-01');
+  write(root, AUTH, okfEntry('user-auth', { verifiedAt: '2026-07-20', attestations: null, codePaths: ['src/**'] }));
+  const r = byName(audit(root), 'user-auth');
+  assert.ok(r, 'the entry must appear in the results');
+  assert.equal(r.verdict, 'current', 'a migrated entry is verified by the workflow');
+});
+
+auditTest('needs-revision is skipped by the audit', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  write(root, AUTH, okfEntry('user-auth', { verificationState: 'needs-revision', attestations: null, verifiedAt: '2026-07-01', codePaths: ['src/**'] }));
+  const r = byName(audit(root), 'user-auth');
+  assert.equal(r.verdict, 'skipped', 'okf check already surfaces it');
+  assert.match(r.note, /needs-revision/, 'and it is skipped for that reason, not for a missing field');
+});
+
+auditTest('a deprecated entry stays skipped under the new status vocabulary', ({ root, commit }) => {
+  commit('src/auth.js', 'v1\n', '2026-07-25');
+  write(root, AUTH, okfEntry('user-auth', { status: 'deprecated', verifiedAt: '2026-07-01', codePaths: ['src/**'] }));
+  const r = byName(audit(root), 'user-auth');
+  assert.equal(r.verdict, 'skipped', 'deprecated code is expected to diverge');
+  assert.match(r.note, /deprecated/, 'and it is skipped for that reason');
+});
+
+// --- migration ----------------------------------------------------------------
+
+test('migrate moves a verified entry without writing an attestation', (root) => {
+  write(root, AUTH, legacyEntry('user-auth'));
+  migrate(root);
+  const text = readF(root, AUTH);
+  assert.match(text, /^verification_state: verified$/m, 'the workflow state is preserved');
+  assert.match(text, /^verified_at: 2026-07-30$/m, 'the date is preserved');
+  assert.equal(/^verified:/m.test(text), false, 'migration must not invent who vouched for it');
+});
+
+test('migrate moves an unverified entry', (root) => {
+  write(root, AUTH, legacyEntry('user-auth', { verified: 'unverified' }));
+  migrate(root);
+  const text = readF(root, AUTH);
+  assert.match(text, /^verification_state: unverified$/m);
+  assert.equal(/^verified:/m.test(text), false);
+});
+
+test('migrate run twice writes nothing the second time', (root) => {
+  write(root, AUTH, legacyEntry('user-auth'));
+  migrate(root);
+  const after = readF(root, AUTH);
+  const res = migrate(root);
+  assert.equal(readF(root, AUTH), after, 'a second run must be a no-op');
+  assert.deepEqual(res.rewritten, [], 'and must report nothing rewritten');
+});
+
+test('migrate rewrites only the entries still on the old shape', (root) => {
+  write(root, AUTH, legacyEntry('user-auth'));
+  write(root, '.okf/features/billing.md', okfEntry('billing'));
+  const before = readF(root, '.okf/features/billing.md');
+  const res = migrate(root);
+  assert.equal(readF(root, '.okf/features/billing.md'), before, 'a current entry is left alone');
+  assert.equal(res.rewritten.length, 1, 'only the old-shape entry is rewritten');
+});
+
+test('migrate leaves the body and unrelated keys byte-identical', (root) => {
+  write(root, AUTH, legacyEntry('user-auth'));
+  const bodyBefore = readF(root, AUTH).split('---\n')[2];
+  migrate(root);
+  const text = readF(root, AUTH);
+  assert.equal(text.split('---\n')[2], bodyBefore, 'the body is not the migration target');
+  assert.match(text, /^criticality: normal$/m, 'unrelated keys survive');
+  assert.match(text, /^code_paths: \[src\/\*\*\]$/m, 'unrelated keys survive');
+});
+
+test('migrate leaves an unparseable entry untouched and reports it', (root) => {
+  write(root, AUTH, 'no frontmatter here at all\n');
+  const res = migrate(root);
+  assert.equal(readF(root, AUTH), 'no frontmatter here at all\n', 'a file we cannot read is not rewritten');
+  assert.deepEqual(res.unparseable, [AUTH], 'and it is reported rather than skipped silently');
+});
+
+test('migrate on a bundle with no features directory reports nothing to do', (root) => {
+  fs.rmSync(path.join(root, '.okf', 'features'), { recursive: true, force: true });
+  const res = migrate(root);
+  assert.deepEqual(res.rewritten, [], 'nothing to migrate is not an error');
+});
+
+// --- integration: the CLI, the payload boundary, and the committed layout ----
+
+const okf = (root, ...args) => {
+  try {
+    return {
+      code: 0,
+      out: execFileSync('node', [path.join(KIT, 'bin/okf.mjs'), ...args, '--root', root], { encoding: 'utf8' }),
+    };
+  } catch (err) {
+    return { code: err.status, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+  }
+};
+
+const hashTree = (root, rel) => {
+  const dir = path.join(root, rel);
+  if (!fs.existsSync(dir)) return {};
+  return Object.fromEntries(
+    fs
+      .readdirSync(dir)
+      .sort()
+      .map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, f))).digest('hex')])
+  );
+};
+
+projectTest('upgrade writes nothing under features or decisions', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  write(root, '.okf/features/user-auth.md', legacyEntry('user-auth'));
+  write(root, '.okf/decisions/2026-07-30-a-decision.md', '---\ntype: Decision\ntitle: a\nstatus: accepted\n---\n\nOurs.\n');
+
+  const before = { f: hashTree(root, '.okf/features'), d: hashTree(root, '.okf/decisions') };
+  install(KIT, root, KIT_VERSION, { mode: 'upgrade', force: true });
+
+  assert.deepEqual(hashTree(root, '.okf/features'), before.f, 'entries are project-owned, even under --force');
+  assert.deepEqual(hashTree(root, '.okf/decisions'), before.d, 'so are decisions');
+});
+
+projectTest('migrate then check exits clean', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  write(root, '.okf/features/user-auth.md', legacyEntry('user-auth'));
+
+  assert.equal(okf(root, 'migrate').code, 0, 'migration itself must succeed');
+  okf(root, 'index');
+
+  const res = okf(root, 'check');
+  assert.equal(res.code, 0, `a migrated bundle must not be blocked:\n${res.out}`);
+  assert.match(res.out, /carries no attestation/, 'the missing attestation is reported as a warning');
+  assert.match(res.out, /0 error/, 'and never as an error');
+});
+
+projectTest('migrate reports every file it touched', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  for (const name of ['user-auth', 'billing', 'search']) {
+    write(root, `.okf/features/${name}.md`, legacyEntry(name));
+  }
+
+  const res = okf(root, 'migrate');
+  for (const name of ['user-auth', 'billing', 'search']) {
+    assert.match(res.out, new RegExp(`\\.okf/features/${name}\\.md`), `${name} must be named in the report`);
+  }
+  assert.match(res.out, /3 rewritten/);
+});
+
+projectTest('templates named .md.tmpl are not concept documents', (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  writeIndex(root, { today: '2026-07-30' });
+
+  const findings = check(root, { kitVersion: KIT_VERSION }).findings.filter((f) => /templates/.test(f.file));
+  assert.deepEqual(findings, [], 'a template is not knowledge, and must not be read as a concept');
+  assert.ok(fs.existsSync(path.join(root, '.okf/templates/feature.md.tmpl')), 'the template still ships');
+});
+
+projectTest("the profile document names the kit's divergences", (root) => {
+  install(KIT, root, KIT_VERSION, { mode: 'init' });
+  const text = readF(root, '.okf/profile.md');
+
+  for (const key of ['verification_state', 'verified_at', 'criticality', 'pending_changes', 'code_paths', 'decision_status']) {
+    assert.match(text, new RegExp(`\`${key}\``), `the profile must name the kit key ${key}`);
+  }
+  assert.match(text, /v0\.2/, 'the targeted specification version must be stated');
+  assert.match(text, /not proven genuine|does not claim/i, 'the limit of the human-review check must be stated');
+});
+
+auditTest('the bundle index is committed at a lowercase path', ({ root, git, commit }) => {
+  commit('.okf/index.md', '---\nokf_version: "0.2"\n---\n\n# OKF Index\n', '2026-07-30');
+  const tracked = git(['ls-files', '.okf']).split('\n').filter(Boolean);
+
+  assert.ok(tracked.includes('.okf/index.md'), `the reserved name is lowercase, got: ${tracked.join(', ')}`);
+  assert.equal(
+    tracked.some((f) => f === '.okf/INDEX.md'),
+    false,
+    'the uppercase path must not survive - on a case-insensitive filesystem a one-step rename records nothing'
+  );
 });
 
 // ---------------------------------------------------------------------------
