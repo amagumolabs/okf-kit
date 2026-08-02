@@ -1,7 +1,11 @@
 schema: okf-gated-feature
 
 context: |
-  All feature work follows the OKF + OpenSpec + test-first workflow.
+  All feature work follows the OKF + OpenSpec + test-first workflow, and the
+  `okf-gated-feature` schema is what carries it. A change created on another schema
+  gets none of that schema's artifacts - that is an opt-out, so say so when you make
+  it rather than letting the missing files pass as an oversight. The durable OKF
+  entry is owed either way: the knowledge outlives the change, and no schema owns it.
 
   Durable knowledge lives in exactly one place per capability:
   .okf/features/<capability-name>.md - named after the capability, never after the change.
@@ -11,10 +15,10 @@ context: |
   actors, permissions, entities, workflows). OpenSpec specs hold requirements and scenarios,
   and CITE the BR-n ids instead of restating rules - two copies of one sentence drift, a citation cannot.
 
-  Two things are mandatory gates, not suggestions: a test-plan must exist before implementation,
-  and an OKF entry (even if unverified) must exist before implementation.
+  Two of that schema's artifacts are mandatory gates, not suggestions: a test-plan must exist
+  before implementation, and an OKF entry (even if unverified) must exist before implementation.
 
-  One meta-rule covers every escape hatch in this schema: never skip a file and never leave a
+  One meta-rule covers every escape hatch in it: never skip a file and never leave a
   section blank - state a specific reason instead. test-plan says "Not Applicable because ...",
   design says "Not required because ...", okf-link says "no domain knowledge - ...".
   A reason that does not name what makes it true is not a reason.
@@ -29,48 +33,19 @@ context: |
   Everything else - when to explore, how often to loop propose/update, how deep a design goes -
   stays as flexible as the underlying OpenSpec skills already are.
 
+# Rules reach the agent in the same call as the schema's `instruction` for that
+# artifact, and the instruction already carries the whole procedure. A rule that
+# restates one is read twice and drifts in two places, so this block holds only
+# what the instruction does not say.
+#
+# The second filter is that rules are injected by artifact id, not by schema:
+# `proposal`, `specs`, `design` and `tasks` also reach a change created with
+# `--schema spec-driven`, where okf-link.md, test-plan.md and the test-first task
+# groups do not exist. A rule naming those files reads as an instruction to fill in
+# a file the change will never have. So what stays here must hold on any schema -
+# the schema-specific mechanics live in the schema, where the artifacts are real.
 rules:
-  okf-link:
-    - Name each entry after the OpenSpec capability, never after the change - add-user-auth and fix-auth-mfa are both the user-auth capability.
-    - Search .okf/index.md and .okf/features/ for an existing entry before creating one; enrich rather than create a near-duplicate.
-    - Use .okf/templates/feature.md.tmpl as the body structure, and delete every section you have no real content for.
-    - New entries start as verification_state=unverified, with no `verified` key and code_paths empty.
-    - Append this change id to pending_changes and linked_changes; never touch verification_state, verified, or verified_at here.
-    - Give every new business rule the next BR-n id in that file; never renumber, never reuse, never delete a rule (mark it deprecated in <change-id>).
-    - One row per capability in the proposal's Capabilities section; a capability with no domain knowledge gets "no domain knowledge - <reason>" instead of a path.
-    - 'Preserve provenance (source PRD/spec, explore session, or a short quote of the original request). Reference a change as `change:<change-id>`, never as a path under openspec/changes/ - that path is renamed at archive time and the reference dangles.'
-    - Do not invent requirements - inferred details go under Assumptions, blockers under Open Questions.
-  proposal:
-    - Read the linked OKF entries before writing, and cite BR-n ids rather than restating rules.
-    - Must include scope, non-goals, risks, and testable acceptance criteria.
-    - Must reconcile okf-link.md so its rows and the Capabilities section list exactly the same capabilities.
-  specs:
-    - 'Add "Implements: BR-n" to any requirement that exists because of a domain rule, and leave the rule''s wording in the OKF entry only.'
-    - A rule discovered while writing specs goes into the OKF entry first with a new BR-n, then gets cited.
   design:
-    - 'Always create the file. If none of the triggers apply, its entire content is one line: "Not required because <specific reason>."'
-    - '"Not required because it is small" is not a reason - name what makes it small.'
-    - Flag any decision that outlives this change so the verification pass can promote it to .okf/decisions/.
-  test-cases:
-    - Must classify cases as unit, integration, or E2E.
-    - Every acceptance criterion, every spec scenario, and every BR-n touched must map to at least one test case, or appear in Not Applicable with a specific reason and an approver.
-  test-plan:
-    - Must exist before implementation - if genuinely not testable, write "Not Applicable because <specific reason>" rather than skipping the file.
-    - 'Use only these status values: planned, skeleton, failing, passing.'
-    - Unit tests for business rules must reach failing (assertion failure, not a compile error) before their implementation task starts; Initial Status records the actual failure message.
-    - Contract stubs declare signatures only and throw "not implemented" - a stub containing logic breaks test-first at step one.
-    - Integration and E2E tests may start as skeleton using the runner's own pending mechanism, but every skeleton or planned row left at archive time must appear in Known Gaps with a reason and an owner.
+    - 'Always create design.md, whatever the schema in play says about it being optional. If nothing warrants a design, its entire content is one line: "Not required because <specific reason>." - and "because it is small" is not a reason until it names what makes it small.'
   tasks:
-    - 'Keep the template''s group order: contract stubs, red unit tests, implementation, integration, E2E, verification and OKF pass, archive readiness.'
-    - Unit test tasks must appear before the implementation tasks they cover.
-    - The verification group must contain the concrete OKF pass work, not a single boilerplate line.
-  verification:
-    - Must include exact commands and real results.
-    - Must fill the Rule Evidence table with a real file:line or test name for every BR-n touched - a checkbox is not evidence.
-    - 'Apply the verdicts honestly: okf-gap updates the entry, code-gap is a defect to fix in code (never sync the entry down to match a bug), conflict goes to a human.'
-    - 'For every linked entry: set verification_state and verified_at, fill code_paths, remove this change id from pending_changes, append a Verification History row.'
-    - 'Write the spec-shaped verified[] attestation list for the entry''s current content - replace it, never append across changes, and delete it on a conflict verdict. Never write a human: actor on someone''s behalf.'
-    - 'Promote durable decisions from design.md into .okf/decisions/ before archive buries them. The Decision Promotion table is enforced: each row answers with a resolving path under .okf/decisions/ or a reason the decision is change-local, and only design.md''s one-line "Not required because ..." form waives the table.'
-    - 'Validate every capability spec synced into openspec/specs/ with `openspec validate <capability> --strict`, not just the change - a valid change can still assemble an invalid baseline spec.'
-    - Regenerate .okf/index.md and .okf/log.md with `okf index`, and fill the Needs Revision Ledger note for any entry left at needs-revision.
-    - Run `okf check --archive <change-id>` and record its output; it must exit clean before archive readiness is claimed.
+    - Test tasks come before the implementation tasks they cover, and implementation is never the step that first creates a test file.

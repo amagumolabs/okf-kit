@@ -30,14 +30,18 @@ artifacts:
          genuinely several plausible candidates.
 
       3. If no entry exists, create `.okf/features/<capability-name>.md` from
-         `.okf/templates/feature.md.tmpl`. Set `verification_state: unverified` and
-         write no `verified` key at all - an entry nobody vouches for must read
-         as unverified to any consumer. Add
+         `.okf/templates/feature.md.tmpl`, and delete every section of that
+         template you have no real content for - an empty heading is not a
+         reservation for later work, it is a section nobody filled. Set
+         `verification_state: unverified` and write no `verified` key at all - an
+         entry nobody vouches for must read as unverified to any consumer. Add
          this change id to `pending_changes` and `linked_changes`, and record
          provenance in `sources` (the PRD/spec path, the explore session, or a
-         short quote of the original request). Leave `code_paths` empty - the
-         verification pass fills it. Set `criticality: high` only for auth,
-         permissions, money, or customer data.
+         short quote of the original request); reference a change as
+         `change:<change-id>` and never as a path under `openspec/changes/`, which
+         is renamed at archive time and leaves the reference dangling. Leave
+         `code_paths` empty - the verification pass fills it. Set
+         `criticality: high` only for auth, permissions, money, or customer data.
 
       4. If an entry exists, enrich it in place: add what this change contributes,
          do not overwrite unrelated sections, do not invent requirements. Append
