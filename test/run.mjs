@@ -1722,7 +1722,7 @@ projectTest('the version agrees in package.json, both markers, and the README', 
   }
 
   const readme = fs.readFileSync(path.join(KIT, 'README.md'), 'utf8');
-  const install = /openspec#v([\d.]+)/.exec(readme);
+  const install = /okf-kit#v([\d.]+)/.exec(readme);
   assert.ok(install, 'README has no versioned install command');
   assert.equal(install[1], pkg, `README installs v${install?.[1]}, package.json says ${pkg}`);
 });
