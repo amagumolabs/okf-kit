@@ -69,17 +69,23 @@ Quote the OKF rule id so the trail BR-n -> spec -> test -> code stays intact.
 
 # Integration Tests
 
-<!-- Start as `skeleton` when fixtures or infrastructure are not ready yet. -->
+<!--
+The file is authored before implementation and starts as `skeleton` when the
+fixtures or infrastructure are not ready yet. Record that starting point in
+Initial Status and leave it alone afterwards: Status moves, Initial Status is
+history. A table where both columns end up `passing` is what a change that wrote
+its tests last produces too.
+-->
 
-| Test Case ID | Test File | Test Name | Status | Notes |
-| --- | --- | --- | --- | --- |
+| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
 
 # E2E Tests
 
-<!-- Designed before implementation, `skeleton` until the API/UI flow is stable enough to run. -->
+<!-- Same two columns, same reason. Designed before implementation, `skeleton` until the API/UI flow is stable enough to run. -->
 
-| Test Case ID | Test File | Test Name | Status | Notes |
-| --- | --- | --- | --- | --- |
+| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
 
 # Test Data And Fixtures
 
@@ -124,7 +130,22 @@ Quote the OKF rule id so the trail BR-n -> spec -> test -> code stays intact.
 
 # Test Changes After Implementation Started
 
-| Date | Test | Reason | Rule (BR-n) Or Spec Change |
+<!--
+Every row answers with exactly one of two things, and this table is checked:
+
+- a citation that resolves - the `BR-n` or the `openspec/specs/` path that changed
+  FIRST, before the test did
+- a mechanical defect, declared as `mechanical defect: <what was wrong>` in
+  Ground. Naming the defect is the point; the bare phrase is not a reason
+
+A row that answers with neither is an error. So is a row that does not say which
+test it concerns.
+
+Leave the table empty if no pre-written test changed - that is the normal case,
+and an empty table is clean.
+-->
+
+| Date | Test | Ground | Rule (BR-n) Or Spec Change |
 | --- | --- | --- | --- |
 
 # Known Gaps

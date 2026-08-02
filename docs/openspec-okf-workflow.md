@@ -228,8 +228,49 @@ task starts. Contract stubs (signatures, a route returning 501, bodies that only
 containing logic defeats the whole point.
 
 Integration and E2E tests may start as `skeleton` when their infrastructure is
-not ready. Any row still at `skeleton` or `planned` at archive time must appear
-in the test-plan Known Gaps with a reason and an owner.
+not ready - but the file is still written before the implementation, in the task
+group that sits between the unit tests and the code. Deferring the harness is
+legitimate; deferring the file is not, because a test first created after the
+code it covers was shaped by that code and can no longer refute it. The groups
+after implementation promote skeletons; they never author the first one. Any row
+still at `skeleton` or `planned` at archive time must appear in the test-plan
+Known Gaps with a reason and an owner.
+
+The Integration and E2E tables carry two status columns. `Initial Status` is
+where the row stood when implementation started; `Status` is where it stands now.
+Only `Status` answers "is this still a gap" - a row that started `skeleton` and
+ended `passing` is the record working, not a requirement slipping through. Never
+rewrite `Initial Status` to match the outcome: it is the only evidence the plan
+carries that the tests predate the code, and a table where both columns agree
+everywhere is exactly what a test-last change produces. `okf check` warns when it
+is left empty.
+
+Through implementation the tests are fixed and the code moves. When the two
+disagree the default is that the code is wrong: that disagreement is the entire
+output of a pre-written test, and editing the test to end it discards the only
+finding it was ever going to produce. A pre-written test may change on exactly
+two grounds - the rule or spec it encodes changed first, or it has a mechanical
+defect (wrong fixture, typo, bad assertion syntax) that leaves what it asserts
+untouched.
+
+When the rule is what turned out to be wrong, the order of repair is fixed: OKF
+entry, then spec, then the row in `test-plan.md`, then the test, then the code.
+Reversing it lets the implementation define the domain.
+
+Every such change goes in the Test Changes table, and that table is checked. A
+row says which test changed, and answers with either a citation that resolves - a
+`BR-n` carried by a linked entry, or an `openspec/specs/` path that exists - or a
+declared mechanical defect that names what was wrong. A row answering with
+neither is an error. An empty table is clean and is the normal case.
+
+What this does *not* do is prove the order, in either sense. `okf check` reads
+finished files and cannot see when one was created, so an agent that writes a
+skeleton and rewrites it wholesale after implementation passes every check - and
+a change that bends its tests and records nothing passes too. The check reaches
+the recorded case: it closes the gap between recording a test change and
+justifying it, not the gap between making one and recording it. The mechanical
+layer guarantees the record exists and is internally consistent; whether it is
+honest is a review question, and the diff is where it is answered.
 
 ## 8. Known limitations
 

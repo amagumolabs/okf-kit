@@ -21,6 +21,17 @@ const KIT = path.resolve(import.meta.dirname, '..');
 
 let passed = 0;
 const failures = [];
+const todos = [];
+
+/**
+ * A test that is declared but has no body yet - this harness's pending
+ * mechanism, and the only way a row in a test-plan can honestly read
+ * `skeleton`. It is reported in the summary so it cannot be forgotten, and it
+ * never fails the run.
+ */
+function todo(name) {
+  todos.push(name);
+}
 
 function test(name, fn) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-test-'));
@@ -202,9 +213,9 @@ const TEST_PLAN = `# Test Plan
 
 # E2E Tests
 
-| Test Case ID | Test File | Test Name | Status | Notes |
-| --- | --- | --- | --- | --- |
-| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | passing | - |
+| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | skeleton | passing | - |
 
 # Known Gaps
 
@@ -676,6 +687,357 @@ test('archive mode passes on the clean fixture', (root) => {
     report.errors.map((f) => `${f.file}: ${f.message}`),
     [],
     'the happy path must actually be archivable'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Where each test level stood before implementation, and which column says so.
+// Rules: .okf/features/test-first-gate.md (BR-1, BR-5, BR-6).
+// ---------------------------------------------------------------------------
+
+const E2E_ROW = '| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | skeleton | passing | - |';
+
+/** Rewrite the fixture's E2E row with the given initial and current statuses. */
+function setE2eStatuses(root, initial, status) {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t.replace(E2E_ROW, `| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | ${initial} | ${status} | - |`)
+  );
+}
+
+const MISSING_INITIAL = /records no status from before implementation/;
+
+test('UT-001 an unknown word in Initial Status is an error', (root) => {
+  setE2eStatuses(root, 'wip', 'passing');
+  assertError(check(root), /unknown test status "wip"/, 'the vocabulary must reach the historical column too');
+});
+
+test('UT-002 a failing status keeps its assertion message', (root) => {
+  const report = check(root);
+  assert.equal(
+    find(report, /unknown test status/).length,
+    0,
+    '"failing: expected 403, got 200" is a status plus its message, not an unknown word'
+  );
+  assert.equal(
+    find(report, /records no assertion message/, 'warn').length,
+    0,
+    'a recorded assertion message must not be asked for twice'
+  );
+});
+
+test('UT-003 a promoted skeleton needs no Known Gaps row', (root) => {
+  setE2eStatuses(root, 'skeleton', 'passing');
+  const report = check(root, { archiveChange: 'add-mfa' });
+  assert.equal(
+    find(report, /no Known Gaps row/).length,
+    0,
+    'where a test started is history - only where it stands now can be a live gap'
+  );
+});
+
+test('UT-004 a surviving skeleton still needs an owner', (root) => {
+  setE2eStatuses(root, 'skeleton', 'skeleton');
+  assertError(
+    check(root, { archiveChange: 'add-mfa' }),
+    /still skeleton but has no Known Gaps row/,
+    'a skeleton that never got promoted must still be owned'
+  );
+});
+
+test('UT-005 a table with only Initial Status uses it as live', (root) => {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t.replace('failing: expected 403, got 200', 'planned')
+  );
+  assertError(
+    check(root, { archiveChange: 'add-mfa' }),
+    /still planned but has no Known Gaps row/,
+    'the unit table has no other status column, so its initial status is its live one'
+  );
+});
+
+test('UT-006 an empty Initial Status warns and does not error', (root) => {
+  setE2eStatuses(root, '', 'passing');
+  const report = check(root);
+  assert.ok(
+    find(report, MISSING_INITIAL, 'warn').some((f) => /API-E2E-001/.test(f.message)),
+    'an unrecorded starting point is the whole evidence that the test predates the code'
+  );
+  assert.equal(find(report, MISSING_INITIAL).length, 0, 'a new invariant starts as a warning, not an error');
+});
+
+test('UT-007 a waived level emits no missing-status warning', (root) => {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t
+      .replace('- API E2E: sign-in journey', '- API E2E: not applicable, this change has no HTTP surface')
+      .replace(
+        '# E2E Tests\n\n| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |\n' +
+          '| --- | --- | --- | --- | --- | --- |\n' +
+          E2E_ROW +
+          '\n',
+        ''
+      )
+  );
+  const report = check(root);
+  assert.equal(
+    find(report, MISSING_INITIAL, 'warn').length,
+    0,
+    'a level dropped whole with a reason has no rows to record a starting point for'
+  );
+});
+
+test('NEG-001 an invalid Status is not excused by a valid Initial Status', (root) => {
+  setE2eStatuses(root, 'skeleton', 'red');
+  assertError(check(root), /unknown test status "red"/, 'each status column is validated on its own');
+});
+
+test('NEG-002 status-free and blank rows produce no warning', (root) => {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t
+      .replace(
+        '# E2E Tests',
+        '# Contract Stubs\n\n| Contract | File | Signature Or Shape | Notes |\n| --- | --- | --- | --- |\n' +
+          '| requireMfa | src/auth/mfa.ts | throws not implemented | - |\n\n# E2E Tests'
+      )
+      .replace(E2E_ROW, `${E2E_ROW}\n|  |  |  |  |  |  |`)
+  );
+  const report = check(root);
+  assert.equal(
+    find(report, MISSING_INITIAL, 'warn').length,
+    0,
+    'the rule is about rows that carry a status, not about every row of every table'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// A test changed after implementation started answers for why.
+// Rules: .okf/features/test-first-gate.md (BR-8, BR-9, BR-10).
+// ---------------------------------------------------------------------------
+
+const TEST_CHANGES_HEADER =
+  '| Date | Test | Ground | Rule (BR-n) Or Spec Change |\n| --- | --- | --- | --- |';
+
+/** Append rows to the fixture plan's Test Changes table. Each row is body cells. */
+function setTestChanges(root, rows) {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) => {
+    const body = rows.map((r) => `| ${r.join(' | ')} |`).join('\n');
+    return `${t}\n# Test Changes After Implementation Started\n\n${TEST_CHANGES_HEADER}\n${body}\n`;
+  });
+}
+
+const NO_GROUND = /states no ground/;
+
+test('UT-101 a test change that names no test is caught', (root) => {
+  setTestChanges(root, [['2026-07-30', '', 'the rule moved', 'BR-1']]);
+  assertError(check(root), /names no test/, 'a record that does not say which test records nothing');
+});
+
+test('UT-102 a test change citing an unknown rule is caught', (root) => {
+  setTestChanges(root, [['2026-07-30', 'refuses admin without mfa', 'the rule moved', 'BR-9']]);
+  assertError(check(root), /BR-9/, 'a citation that resolves to nothing is not a ground');
+});
+
+test('UT-103 a test change citing a missing spec is caught', (root) => {
+  setTestChanges(root, [
+    ['2026-07-30', 'refuses admin without mfa', 'the spec moved', '`openspec/specs/ghost/spec.md`'],
+  ]);
+  assertError(check(root), /openspec\/specs\/ghost\/spec\.md/, 'a dangling spec path is not a ground');
+});
+
+test('UT-104 a declared mechanical defect is a complete answer', (root) => {
+  setTestChanges(root, [
+    ['2026-07-30', 'refuses admin without mfa', 'mechanical defect: fixture seeded the wrong tenant', '-'],
+  ]);
+  const report = check(root);
+  assert.equal(
+    find(report, /Test Changes|names no test|states no ground/).length,
+    0,
+    'a named mechanical defect is the second admissible ground, not a missing citation'
+  );
+});
+
+test('UT-105 a test change standing on nothing is caught', (root) => {
+  setTestChanges(root, [['2026-07-30', 'refuses admin without mfa', 'it did not pass', '-']]);
+  assertError(check(root), NO_GROUND, 'a test change with no stated ground reads as a test fitted to the code');
+});
+
+test('UT-106 an empty Test Changes table is clean', (root) => {
+  setTestChanges(root, []);
+  const report = check(root);
+  assert.deepEqual(
+    report.findings.map((f) => `[${f.level}] ${f.file}: ${f.message}`),
+    [],
+    'the table is a record, not a quota - checking it must never reward leaving a row out'
+  );
+});
+
+test('NEG-101 a mechanical defect must name what was wrong', (root) => {
+  setTestChanges(root, [['2026-07-30', 'refuses admin without mfa', 'mechanical defect', '-']]);
+  assertError(check(root), NO_GROUND, 'a declaration that names nothing is a phrase, not a reason');
+});
+
+test('NEG-102 a resolving citation needs no declared ground', (root) => {
+  setTestChanges(root, [['2026-07-30', 'refuses admin without mfa', '-', 'BR-1']]);
+  const report = check(root);
+  assert.equal(
+    find(report, /names no test|states no ground|BR-1/).length,
+    0,
+    'a citation that resolves answers the row on its own'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The shipped schema payload, asserted against itself. These are declared
+// before the implementation they cover, and promoted once it lands.
+// Rules: .okf/features/test-first-gate.md (BR-4, BR-6, BR-7).
+// ---------------------------------------------------------------------------
+
+const SCHEMA_DIR = path.join(KIT, 'openspec/schemas/okf-gated-feature');
+const shipped = (rel) => fs.readFileSync(path.join(SCHEMA_DIR, rel), 'utf8');
+
+/** The `## N. Title` groups of a tasks file, with their checkbox lines. */
+function taskGroups(text) {
+  const groups = [];
+  for (const line of text.split('\n')) {
+    const heading = /^##\s+\d+\.\s*(.+?)\s*$/.exec(line);
+    if (heading) {
+      groups.push({ title: heading[1], tasks: [], text: '' });
+      continue;
+    }
+    if (!groups.length) continue;
+    groups.at(-1).text += `${line}\n`;
+    if (/^-\s*\[.\]/.test(line.trim())) groups.at(-1).tasks.push(line);
+  }
+  return groups;
+}
+
+/** Index of the first group whose checkbox lines match `re`, or -1. */
+const firstGroupWhere = (groups, re) => groups.findIndex((g) => g.tasks.some((t) => re.test(t)));
+
+/** Header cells of the table under a `# Heading` in a test-plan-shaped file. */
+function tableHeader(text, heading) {
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => l.trim() === `# ${heading}`);
+  assert.ok(start !== -1, `the template must still have a "${heading}" section`);
+  const row = lines.slice(start + 1).find((l) => l.trim().startsWith('|'));
+  return row.split('|').slice(1, -1).map((c) => c.trim());
+}
+
+test('IT-001 the skeleton group precedes implementation', () => {
+  const groups = taskGroups(shipped('templates/tasks.md'));
+  const skeletons = groups.findIndex((g) => /skeleton/i.test(g.title));
+  const implementation = groups.findIndex((g) => /^implementation$/i.test(g.title));
+
+  assert.ok(skeletons !== -1, 'the template must have a group that creates integration and E2E skeletons');
+  assert.ok(
+    skeletons < implementation,
+    `the skeleton group is at ${skeletons} and implementation at ${implementation} - ` +
+      'a test file first created after the code it covers can only describe it'
+  );
+});
+
+test('IT-002 nothing promotes a skeleton nothing creates', () => {
+  const groups = taskGroups(shipped('templates/tasks.md'));
+  const creates = firstGroupWhere(groups, /skeleton/i);
+  const promotes = firstGroupWhere(groups, /promote/i);
+
+  assert.ok(promotes !== -1, 'the template still asks for promotion somewhere');
+  assert.ok(creates !== -1, 'something must create the skeletons the template promotes');
+  assert.ok(
+    creates < promotes,
+    `promotion is asked for in group ${promotes} and creation in ${creates} - ` +
+      'an agent told to promote what nothing created improvises, and improvises late'
+  );
+});
+
+test('IT-003 the group order sentence matches the template', () => {
+  const titles = taskGroups(shipped('templates/tasks.md')).map((g) => g.title.toLowerCase());
+  const sentence = /these\s+are\s+its\s+groups\s+by\s+name:([\s\S]*?)\./i.exec(shipped('schema.yaml'));
+
+  assert.ok(sentence, 'the tasks instruction must still name the groups it expects');
+  const named = sentence[1]
+    .split(/,?\s*\bthen\b\s*/)
+    .map((s) => s.replace(/\s+/g, ' ').replace(/^,\s*/, '').trim().toLowerCase())
+    .filter(Boolean);
+
+  assert.deepEqual(named, titles, 'the sentence a reviewer reads must name the groups an agent executes');
+});
+
+test('IT-004 both status columns ship in the test-plan template', () => {
+  const template = shipped('templates/test-plan.md');
+  for (const heading of ['Integration Tests', 'E2E Tests']) {
+    const header = tableHeader(template, heading);
+    assert.ok(header.includes('Initial Status'), `${heading} must record where each row started`);
+    assert.ok(header.includes('Status'), `${heading} must record where each row stands now`);
+  }
+  assert.deepEqual(
+    tableHeader(template, 'Pre-Implementation Unit Tests').filter((c) => /status/i.test(c)),
+    ['Initial Status'],
+    'the unit table records only a starting point, and that stays its live status'
+  );
+});
+
+test('IT-005 a plan filled from the new template checks clean', (root) => {
+  const filled = shipped('templates/test-plan.md')
+    .replace('- Unit:', '- Unit: the MFA rule, against a stubbed session store')
+    .replace('- Integration:', '- Integration: session creation through the real repository')
+    .replace('- API E2E:', '- API E2E: the sign-in journey over HTTP')
+    .replace('- Browser E2E:', '- Browser E2E: not applicable, this change adds no UI')
+    .replace(
+      '| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Notes |\n| --- | --- | --- | --- | --- | --- |',
+      '| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Notes |\n| --- | --- | --- | --- | --- | --- |\n' +
+        '| UT-001 | BR-1 | src/auth/mfa.test.ts | refuses admin without mfa | failing: expected 403, got 200 | - |'
+    )
+    .replace(
+      '| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |\n| --- | --- | --- | --- | --- | --- |',
+      '| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |\n| --- | --- | --- | --- | --- | --- |\n' +
+        '| IT-001 | src/auth/session.int.test.ts | creates a session | skeleton | passing | - |'
+    );
+
+  write(root, 'openspec/changes/add-mfa/test-plan.md', filled);
+  const report = check(root, { archiveChange: 'add-mfa' });
+  assert.deepEqual(
+    report.findings
+      .filter((f) => f.file === 'openspec/changes/add-mfa/test-plan.md')
+      .map((f) => `[${f.level}] ${f.message}`),
+    [],
+    'a plan filled honestly from the shipped template must not be argued with'
+  );
+});
+
+test('IT-101 the implementation group states the direction', () => {
+  const groups = taskGroups(shipped('templates/tasks.md'));
+  const implementation = groups.find((g) => /^implementation$/i.test(g.title));
+
+  assert.ok(implementation, 'the template must still have an implementation group');
+  assert.ok(
+    /code adapts to the tests|tests are fixed and the code moves/i.test(implementation.text),
+    'the group an agent executes must say which side gives way when code and test disagree'
+  );
+});
+
+test('IT-102 the tasks instruction states the order of repair', () => {
+  const sentence = /the order of repair is fixed[\s\S]{0,400}/i.exec(shipped('schema.yaml'));
+  assert.ok(sentence, 'the tasks instruction must state an order of repair');
+
+  const order = ['OKF entry', 'spec', 'test-plan', 'test', 'code'];
+  const at = order.map((step) => sentence[0].toLowerCase().indexOf(step.toLowerCase()));
+
+  for (const [i, step] of order.entries()) {
+    assert.ok(at[i] !== -1, `the order of repair must name "${step}"`);
+  }
+  assert.deepEqual(
+    at,
+    [...at].sort((a, b) => a - b),
+    'entry, spec, record, test, code - stated in the order they must happen'
+  );
+});
+
+test('IT-103 the Test Changes table shows both grounds', () => {
+  const header = tableHeader(shipped('templates/test-plan.md'), 'Test Changes After Implementation Started');
+  assert.ok(header.includes('Ground'), 'the ground a row stands on must be a column, not an inference');
+  assert.ok(
+    header.some((c) => /rule.*spec/i.test(c)),
+    'the citation column must stay - a resolving citation is the other admissible answer'
   );
 });
 
@@ -1933,11 +2295,13 @@ auditTest('the bundle index is committed at a lowercase path', ({ root, git, com
 
 // ---------------------------------------------------------------------------
 
+for (const name of todos) console.log(`TODO  ${name}`);
+
 if (failures.length) {
   for (const { name, err } of failures) {
     console.error(`\nFAIL  ${name}\n${err.message}`);
   }
-  console.error(`\n${passed} passed, ${failures.length} failed`);
+  console.error(`\n${passed} passed, ${failures.length} failed${todos.length ? `, ${todos.length} todo` : ''}`);
   process.exit(1);
 }
-console.log(`${passed} passed`);
+console.log(`${passed} passed${todos.length ? `, ${todos.length} todo` : ''}`);

@@ -286,12 +286,23 @@ artifacts:
         Initial Status records the actual assertion failure
         (`failing: expected 403, got 200`), not the bare word "failing".
 
-      - **Integration and E2E tests** may start as `skeleton` when the fixtures,
-        server, seeded database, or browser harness are not ready yet. Every row
-        left at `skeleton` or `planned` when archive readiness is assessed must
-        appear in Known Gaps with a reason and an owner - a `skeleton` that
-        quietly survives into the archive is an untested requirement wearing a
-        test's name.
+      - **Integration and E2E tests** are authored before implementation too, and
+        may start as `skeleton` when the fixtures, server, seeded database, or
+        browser harness are not ready yet. Deferring the harness is legitimate;
+        deferring the file is not, because a test file first created after the
+        code it covers was shaped by that code and can no longer refute it.
+        Every row left at `skeleton` or `planned` when archive readiness is
+        assessed must appear in Known Gaps with a reason and an owner - a
+        `skeleton` that quietly survives into the archive is an untested
+        requirement wearing a test's name.
+
+      Both of these tables carry two status columns, and they mean different
+      things: `Initial Status` is where the row stood when implementation
+      started, `Status` is where it stands now. Fill both. Move `Status` as the
+      work progresses and never rewrite `Initial Status` to match it - that
+      column is the only evidence the plan carries that the tests predate the
+      code, and a table where the two agree everywhere is exactly what a
+      test-last change produces. An unfilled `Initial Status` is reported.
 
       Cite the `BR-n` id for each pre-implementation unit test so the trail from
       rule to code stays intact.
@@ -308,11 +319,36 @@ artifacts:
     instruction: |
       Break the work down into tasks.
 
-      **Follow the template's group order.** It encodes the workflow: contract
-      stubs, then red unit tests, then implementation, then integration and E2E,
-      then verification and the OKF pass, then archive readiness. Rename and split
-      groups to fit the change; do not reorder them, and do not fold test tasks
-      into implementation tasks.
+      **Follow the template's group order.** It encodes the workflow, and these
+      are its groups by name: Contract Stubs, then Pre-Implementation Unit Tests,
+      then Integration And E2E Skeletons, then Implementation, then Integration
+      Tests, then E2E Tests, then Verification And OKF Pass, then Archive
+      Readiness. Rename and split groups to fit the change; do not reorder them,
+      and do not fold test tasks into implementation tasks.
+
+      Every test file the change plans is created before the implementation
+      group - unit tests in the red state, integration and E2E tests at least as
+      skeletons. The groups after implementation only promote files that already
+      exist. Implementation MUST NOT be the step that first creates a test file:
+      a test written against finished code was shaped by it, and can only
+      describe it. If a level's harness is not ready, the skeleton is still
+      written and stays `skeleton` until Known Gaps claims it with an owner.
+
+      Through the implementation group the tests are fixed and the code moves.
+      When the two disagree, the default is that the code is wrong - that
+      disagreement is the entire output of a pre-written test, and editing the
+      test to end it discards the only finding it was ever going to produce.
+
+      When the rule itself turns out to be wrong, the order of repair is fixed
+      and no step may be skipped or reordered: the OKF entry, then the spec that
+      cites it, then the row in test-plan.md recording the change, then the test,
+      then the code. Reversing it lets the implementation define the domain,
+      which is the failure the knowledge base exists to prevent. The only other
+      admissible reason to touch a pre-written test is a mechanical defect -
+      wrong fixture, typo, bad assertion syntax - which leaves what the test
+      asserts unchanged. Both cases are recorded in the test-plan table, and that
+      table is checked: a row states which test changed and either the citation
+      that resolves or the defect it names.
 
       **IMPORTANT**: every task MUST be a checkbox `- [ ] X.Y <description>`.
       Apply parses this format to track progress - anything else is invisible.
