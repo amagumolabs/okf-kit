@@ -23,7 +23,9 @@
   ],
   "scripts": {
     "check": "node bin/okf.mjs check",
+    "check:archive": "node bin/okf.mjs check --archive",
     "index": "node bin/okf.mjs index",
+    "lint": "for f in bin/*.mjs lib/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done && echo \"node --check: all files parse\"",
     "test": "node test/run.mjs"
   },
   "license": "UNLICENSED"

@@ -1,5 +1,5 @@
 name: okf-gated-feature
-version: 2
+version: 3
 description: OpenSpec workflow with an OKF-linked knowledge gate and a test-first implementation gate
 artifacts:
   - id: okf-link
@@ -332,6 +332,20 @@ artifacts:
       code, and a table where the two agree everywhere is exactly what a
       test-last change produces. An unfilled `Initial Status` is reported.
 
+      Fill the lint and type check commands under Commands from the project's own
+      declaration in `AGENTS.md`, OUTSIDE the okf-kit markers. If the project has
+      not declared them, derive them from its manifest - the scripts in
+      `package.json`, the targets in a `Makefile`, `pyproject.toml`,
+      `Cargo.toml`, `build.gradle` - confirm them with the user, and write them
+      into that region of `AGENTS.md` so the next change inherits the answer.
+
+      Deriving them afresh every change is the thing to avoid. An agent that
+      cannot find a linter in thirty seconds writes "Not Applicable", and nothing
+      then distinguishes that from a project which genuinely has none. A
+      declaration written once is visible to review; a judgement re-made silently
+      per change is not. The kit never parses that declaration - it is prose for
+      the next agent, not configuration.
+
       Cite the `BR-n` id for each pre-implementation unit test so the trail from
       rule to code stays intact.
 
@@ -502,7 +516,25 @@ artifacts:
          instead, and reserve paths for files that do not move (a PRD, a spec
          under `openspec/specs/`).
 
-      11. Run `okf check --archive <change-id>` and record the result. It verifies
+      11. Fill the Static Analysis table. It is ENFORCED by
+         `okf check --archive`, which reads the Result column - a green test
+         suite is not evidence that the code lints or type-checks, because tests
+         and static analysis fail on disjoint defect classes.
+
+         Lint and Typecheck are required rows. A project that runs neither keeps
+         the row and answers `Not Applicable because <specific reason>`; deleting
+         it makes "this project has no type checker" indistinguishable from
+         "nobody thought about it". Further rows are welcome and unconstrained.
+
+         Check names the category, Command names what this project actually runs,
+         taken from the declaration in `AGENTS.md` outside the okf-kit markers.
+         Paste the real outcome - the kit reads what you report and never runs it,
+         which is a deliberate boundary: a validator that executes commands out of
+         an arbitrary repository is a different kind of tool, and CI already runs
+         them. The value here is that the claim sits where a reviewer can compare
+         it against CI.
+
+      12. Run `okf check --archive <change-id>` and record the result. It verifies
          mechanically what this instruction asks for in prose: that every pointer
          resolves, that no placeholder survived, that every cited `BR-n` has
          evidence, that `pending_changes` no longer holds this change, and that no

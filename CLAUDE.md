@@ -122,3 +122,23 @@ warn, and get explicit confirmation before archiving anyway. Do not skip it
 silently, and do not make it an unconditional block - archive stays an informed
 human decision.
 <!-- okf-kit:end -->
+
+## Static analysis commands
+
+Declared once here so every change inherits the answer instead of re-deriving
+it. This block sits outside the okf-kit markers deliberately: `okf upgrade`
+replaces what is between them and leaves this alone.
+
+- Lint: `npm run lint`
+- Typecheck: none
+
+`npm run lint` runs `node --check` over `bin/`, `lib/` and `test/`. That is a
+parse check, not a rule-based lint - it catches a syntax error before it reaches
+a user, and nothing about style or unused bindings. Report it in a change's
+Static Analysis table as what it is; a result that overstates what ran is worse
+than an honest `Not Applicable`.
+
+There is no type checker. The kit is plain ESM annotated with JSDoc, and
+adopting one would add its first dependency - which is a decision about the
+kit's shape, not a step in any one change.
+

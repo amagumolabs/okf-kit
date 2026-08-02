@@ -121,6 +121,21 @@ its tests last produces too.
 
     <e2e-test-command>
 
+## Lint
+
+<!--
+Take this from the project's own declaration in `AGENTS.md`, outside the okf-kit
+markers. If nothing is declared there, derive it from the repository's manifest,
+confirm it with the user, and write it there - so the next change inherits the
+answer instead of re-deriving it.
+-->
+
+    <lint-command>
+
+## Typecheck
+
+    <typecheck-command>
+
 ## OpenSpec Validation
 
     openspec validate <change-id> --strict
