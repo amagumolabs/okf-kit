@@ -16,6 +16,7 @@ import { check } from '../lib/check.mjs';
 import { buildIndex, writeIndex } from '../lib/index-gen.mjs';
 import { install, payloadPaths } from '../lib/install.mjs';
 import { migrate } from '../lib/migrate.mjs';
+import { next } from '../lib/next.mjs';
 
 const KIT = path.resolve(import.meta.dirname, '..');
 
@@ -223,6 +224,26 @@ const TEST_PLAN = `# Test Plan
 | --- | --- | --- | --- | --- |
 `;
 
+/**
+ * The fixture's test-case matrix. No fixture carried this artifact before the
+ * boundary check needed one, so it ships minimal: one unit case, and one
+ * boundary row so the clean fixture is silent rather than warning.
+ */
+const TEST_CASES = `# Test Cases
+
+# Unit Test Cases
+
+| ID | Priority | Scenario | Given | When | Then | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| UT-001 | must | Admin without MFA | an admin account | it signs in with no second factor | the session is refused | BR-1 |
+
+# Negative And Boundary Cases
+
+| Class | ID | Priority | Scenario | Expected Result | Source |
+| --- | --- | --- | --- | --- | --- |
+| Absence | NEG-001 | must | No second factor is presented | the session is refused | BR-1 |
+`;
+
 const VERIFICATION = `# Verification
 
 # Rule Evidence
@@ -266,6 +287,7 @@ function scaffold(root) {
   write(root, 'openspec/changes/add-mfa/design.md', DESIGN);
   write(root, 'openspec/changes/add-mfa/specs/user-auth/spec.md', SPEC);
   write(root, 'openspec/changes/add-mfa/test-plan.md', TEST_PLAN);
+  write(root, 'openspec/changes/add-mfa/test-cases.md', TEST_CASES);
   write(root, 'openspec/changes/add-mfa/verification.md', VERIFICATION);
   writeIndex(root, { today: '2026-07-30' });
 }
@@ -1177,7 +1199,16 @@ test('IT-005 a plan filled from the new template checks clean', (root) => {
       '| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |\n| --- | --- | --- | --- | --- | --- |',
       '| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |\n| --- | --- | --- | --- | --- | --- |\n' +
         '| IT-001 | src/auth/session.int.test.ts | creates a session | skeleton | passing | - |'
-    );
+    )
+    // The Commands section too, since hygiene reaches change artifacts: a plan
+    // whose unit command still reads as a slot has not answered the question the
+    // section asks, and "filled honestly" has to mean the whole document.
+    .replace('<unit-test-command>', 'npm test')
+    .replace('<integration-test-command>', 'npm run test:integration')
+    .replace('<e2e-test-command>', 'npm run test:e2e')
+    .replace('<lint-command>', 'npm run lint')
+    .replace('<typecheck-command>', 'npm run typecheck')
+    .replaceAll('<change-id>', 'add-mfa');
 
   write(root, 'openspec/changes/add-mfa/test-plan.md', filled);
   const report = check(root, { archiveChange: 'add-mfa' });
@@ -1708,6 +1739,222 @@ test('E2E-001 a promotion warning alone exits 0 and reports ready to archive', (
   // execFileSync throws on a non-zero exit, so reaching here is the exit-0 assertion.
   assert.match(out, /okf check: 0 error\(s\), 1 warning\(s\)/, 'the only finding must be the warning');
   assert.match(out, /ready to archive/, 'a warning must not block the archive');
+});
+
+// ---------------------------------------------------------------------------
+// Hygiene on change artifacts, and quoting as the way out of it.
+// Rules: .okf/features/artifact-hygiene.md (BR-1..BR-6).
+// ---------------------------------------------------------------------------
+
+/**
+ * One artifact of the fixture change, written verbatim. A `replace` that
+ * silently matched nothing would leave a test asserting against residue it
+ * never actually wrote.
+ */
+const setArtifact = (root, name, text) => write(root, `${CHANGE}/${name}`, text);
+
+const HYGIENE = /unfilled placeholder|empty table row|empty list item|template instruction comment/;
+
+/** Hygiene findings at any level, narrowed to a path fragment. */
+const hygieneFindings = (report, file = '') =>
+  report.findings
+    .filter((f) => HYGIENE.test(f.message) && f.file.includes(file))
+    .map((f) => `[${f.level}] ${f.file}: ${f.message}`);
+
+/** An unfilled slot of the shape a template leaves behind. */
+const SLOT = '<the capability this change touches>';
+const FENCE = '```';
+const SHIPPED_COMMENT = ['<!--', 'HOW TO USE THIS TEMPLATE', 'Delete this once the artifact has content.', '-->'].join(
+  '\n'
+);
+
+test('UT-200 the clean fixture carries no hygiene finding on a change artifact', (root) => {
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE), CHANGE),
+    [],
+    'every other test here reads as noise if the fixture itself carries residue'
+  );
+});
+
+test('UT-201 a placeholder in a change artifact warns in flight', (root) => {
+  setArtifact(root, 'proposal.md', `${PROPOSAL}\n## Impact\n\n${SLOT}\n`);
+  const report = check(root);
+  assert.equal(
+    find(report, /unfilled placeholder/, 'warn').length,
+    1,
+    'the scan must reach openspec/changes/, not only .okf/ (BR-1)'
+  );
+  assert.deepEqual(
+    hygieneFindings(report, CHANGE).filter((f) => f.startsWith('[error]')),
+    [],
+    'a change in flight legitimately holds a half-written artifact (BR-5)'
+  );
+});
+
+test('UT-202 the same placeholder errors at archive', (root) => {
+  setArtifact(root, 'proposal.md', `${PROPOSAL}\n## Impact\n\n${SLOT}\n`);
+  assertError(
+    check(root, ARCHIVE),
+    /unfilled placeholder/,
+    'nothing archives carrying a slot that reads as an answer (BR-5)'
+  );
+});
+
+test('UT-203 a placeholder inside an inline code span is not residue', (root) => {
+  setArtifact(
+    root,
+    'design.md',
+    `${DESIGN}\n## Notes\n\nThe okf-link template ships \`${SLOT}\` in its first cell.\n`
+  );
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE), CHANGE),
+    [],
+    'naming a slot is an assertion about the template, not an unanswered slot (BR-2, BR-4)'
+  );
+});
+
+test('UT-204 a placeholder inside a fenced block is not residue', (root) => {
+  setArtifact(
+    root,
+    'design.md',
+    [DESIGN, '## Notes', '', FENCE, '| Capability | OKF File |', `| ${SLOT} | ${SLOT} |`, FENCE, ''].join('\n')
+  );
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE), CHANGE),
+    [],
+    'fencing already exempted quoted text; adding spans must not break it (BR-2)'
+  );
+});
+
+test('UT-205 the code-span exemption applies to bundle files too', (root) => {
+  withProse(root, `The feature template ships \`${SLOT}\` as a slot.`);
+  assert.deepEqual(
+    hygieneFindings(check(root), '.okf/features/user-auth.md'),
+    [],
+    'one rule with one implementation, not one per directory (BR-4)'
+  );
+});
+
+test('UT-206 a blank table row in a change artifact is reported', (root) => {
+  setArtifact(
+    root,
+    'test-cases.md',
+    ['# Unit Test Cases', '', '| ID | Scenario |', '| --- | --- |', '| UT-001 | admin without mfa |', '|  |  |', ''].join(
+      '\n'
+    )
+  );
+  assertError(check(root, ARCHIVE), /empty table row/, 'a blank row is residue wherever it survives (BR-1)');
+});
+
+test('UT-207 a leftover instruction comment warns then errors', (root) => {
+  setArtifact(root, 'design.md', `${SHIPPED_COMMENT}\n\n${DESIGN}`);
+  assert.equal(
+    find(check(root), /template instruction comment/, 'warn').length,
+    1,
+    'the comment is guidance the author may still be using (BR-6)'
+  );
+  assertError(
+    check(root, ARCHIVE),
+    /template instruction comment/,
+    'at archive it stops being guidance and starts being residue (BR-6)'
+  );
+});
+
+test('UT-210 the marker named inside a code span is not the comment finding', (root) => {
+  // Found by the rule biting its own paperwork: verification.md has to name the
+  // marker to explain what BR-6 recognises, and naming it made the file report
+  // itself. The comment finding reads raw text - it has to, or stripComments
+  // would delete the very comment it looks for - so it was the one residue check
+  // the quoting exemption never reached.
+  setArtifact(root, 'design.md', `${DESIGN}\n## Notes\n\nA comment is a template's own when it says \`HOW TO USE THIS TEMPLATE\`.\n`);
+  withProse(root, "The marker is `HOW TO USE THIS TEMPLATE`, which only the bundle templates ship.");
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE)),
+    [],
+    'quoting is skipped in every file the scan reads, the comment finding included (BR-2)'
+  );
+
+  setArtifact(root, 'design.md', `${SHIPPED_COMMENT}\n\n${DESIGN}`);
+  assertError(
+    check(root, ARCHIVE),
+    /template instruction comment/,
+    'and stripping the quotes must not blind the check to a real leftover comment (BR-6)'
+  );
+});
+
+test('UT-208 no file is excused by name', (root) => {
+  const src = readF(KIT, 'lib/check.mjs');
+  const scan = src.indexOf('function stripCodeSpans');
+  const walk = src.indexOf('function checkChangeHygiene');
+  const region =
+    src.slice(scan, src.indexOf('\n// ---', scan)) + src.slice(walk, src.indexOf('function checkChange(', walk));
+  // Prose is not the property under test - an implementation may say the word
+  // "exempt" while holding no list. Strip comments and read the code.
+  const code = region.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const offenders = code
+    .split('\n')
+    .filter((l) => /['"][^'"\n]*\w\.md['"]/.test(l) || /\b(allow_?list|exempt\w*|excused|skip_?files)\b/i.test(l));
+  assert.deepEqual(
+    offenders,
+    [],
+    'quoting is recognised from the text itself, never from a list of excused files (BR-3)'
+  );
+  void root;
+});
+
+test('UT-209 an archived change is not scanned', (root) => {
+  write(
+    root,
+    'openspec/changes/archive/2026-01-01-old-change/proposal.md',
+    `## Why\n\n${SLOT}\n\n-\n`
+  );
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE), 'openspec/changes/archive'),
+    [],
+    'an archived change was archived under the rules of its time (BR-1)'
+  );
+});
+
+test('NEG-201 a bare list item in a change artifact is reported', (root) => {
+  setArtifact(root, 'test-cases.md', '# Open Questions\n\n-\n');
+  assertError(check(root, ARCHIVE), /empty list item/, 'same escalation as a placeholder (BR-1)');
+});
+
+test('NEG-202 an autolink is not reported', (root) => {
+  setArtifact(root, 'proposal.md', `${PROPOSAL}\n## Links\n\n<https://example.com/prd>\n`);
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE), CHANGE),
+    [],
+    'inherited from the existing heuristic, and widening the scan must not lose it'
+  );
+});
+
+test('NEG-203 a stray HTML tag is not reported', (root) => {
+  setArtifact(root, 'proposal.md', `${PROPOSAL}\n## Impact\n\nOne line,<br>then another.\n`);
+  assert.deepEqual(
+    hygieneFindings(check(root, ARCHIVE), CHANGE),
+    [],
+    'inherited from the existing stray-tag skip, same reason'
+  );
+});
+
+test('NEG-204 a fence containing a backtick does not swallow the rest of the file', (root) => {
+  setArtifact(
+    root,
+    'design.md',
+    [DESIGN, '## Notes', '', FENCE, 'a line holding one ` inside the fence', FENCE, '', SLOT, ''].join('\n')
+  );
+  assertError(
+    check(root, ARCHIVE),
+    /unfilled placeholder/,
+    'fences are stripped first, so a fence backtick cannot pair with prose after it'
+  );
+});
+
+test('NEG-205 an unbalanced backtick does not swallow the rest of the file', (root) => {
+  setArtifact(root, 'design.md', `${DESIGN}\n## Notes\n\nA sentence with one \` and nothing closing it.\n\n${SLOT}\n`);
+  assertError(check(root, ARCHIVE), /unfilled placeholder/, 'a span with no close is not a span');
 });
 
 test('okf index is idempotent and detects staleness', (root) => {
@@ -2723,6 +2970,560 @@ auditTest('the bundle index is committed at a lowercase path', ({ root, git, com
     tracked.some((f) => f === '.okf/INDEX.md'),
     false,
     'the uppercase path must not survive - on a case-insensitive filesystem a one-step rename records nothing'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// okf next - what a change still owes under .okf/
+// Rules: .okf/features/okf-next.md (BR-1..BR-6).
+// ---------------------------------------------------------------------------
+
+/**
+ * Every path under `root` with its mtime. Compared before and after a call to
+ * prove the command wrote nothing (UT-308 / BR-1).
+ */
+function treeSnapshot(root) {
+  const out = new Map();
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, e.name);
+      if (e.isDirectory()) walk(abs);
+      else out.set(path.relative(root, abs), fs.statSync(abs).mtimeMs);
+    }
+  };
+  walk(root);
+  return out;
+}
+
+const owesVerification = (result) =>
+  result.owed.some((s) => /verification/i.test(s.step) || /pending/i.test(s.step) || /evidence/i.test(s.step));
+
+test('UT-301 an entry still listing the change reports the verification pass', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('pending_changes: []', 'pending_changes:\n  - add-mfa')
+  );
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true, 'the question is answerable');
+  assert.ok(owesVerification(result), 'pending_changes must produce an owed verification step');
+  assert.ok(
+    result.owed.every((s) => typeof s.command === 'string' && s.command.trim()),
+    'every owed step must name a command (BR-4)'
+  );
+});
+
+test('UT-302 a missing verification.md is reported as owed', (root) => {
+  fs.rmSync(path.join(root, CHANGE, 'verification.md'));
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  assert.ok(
+    result.owed.some((s) => /verification\.md/i.test(s.step) || /verification/i.test(s.step)),
+    'an absent verification.md is an owed step, not silence'
+  );
+});
+
+test('UT-303 an empty Rule Evidence table is reported as owed', (root) => {
+  edit(root, `${CHANGE}/verification.md`, (t) =>
+    t.replace('| BR-1 | user-auth | src/auth/mfa.ts:42 | match | none |\n| BR-2 | user-auth | src/auth/admin.ts:17 | match | none |\n', '')
+  );
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  assert.ok(
+    result.owed.some((s) => /evidence/i.test(s.step) || /Rule Evidence/i.test(s.step)),
+    'an empty Rule Evidence table must be reported - existence of the file is not enough'
+  );
+});
+
+test('UT-304 a finished change states that nothing is owed and names the gate', (root) => {
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  assert.equal(result.owed.length, 0, 'the clean fixture owes nothing');
+  assert.match(
+    String(result.statement ?? ''),
+    /nothing.*owed/i,
+    'owing nothing must be stated, not implied by an empty list (BR-6)'
+  );
+  assert.match(String(result.statement ?? ''), /okf check --archive/, 'the real gate must be named (BR-6)');
+});
+
+test('UT-305 a change with no okf-link names openspec status', (root) => {
+  fs.rmSync(path.join(root, CHANGE, 'okf-link.md'));
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  const text = JSON.stringify(result);
+  assert.match(text, /openspec status/, 'the artifact half is named, never re-derived (BR-2)');
+  assert.equal(
+    /proposal|design\.md|test-cases|test-plan|tasks\.md/i.test(text) &&
+      /missing|owed|enumerate/i.test(text),
+    false,
+    'must not list missing OpenSpec artifacts'
+  );
+});
+
+test('UT-306 the implementation holds no artifact ordering', (root) => {
+  const p = path.join(KIT, 'lib/next.mjs');
+  if (!fs.existsSync(p)) {
+    void root;
+    return;
+  }
+  const src = fs.readFileSync(p, 'utf8');
+  // An ordered list of OpenSpec artifact ids would reimplement what openspec status owns.
+  const ordering =
+    /\[\s*['"]okf-link['"]\s*,\s*['"]proposal['"]|ARTIFACTS\s*=\s*\[|artifactOrder|nextArtifact/i;
+  assert.equal(ordering.test(src), false, 'lib/next.mjs must not hold an OpenSpec artifact order (BR-2)');
+  void root;
+});
+
+test('UT-307 every owed step carries a command', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('pending_changes: []', 'pending_changes:\n  - add-mfa')
+  );
+  fs.rmSync(path.join(root, CHANGE, 'verification.md'));
+  const result = next(root, 'add-mfa');
+  assert.ok(result.owed.length >= 1, 'the fixture must owe at least one step');
+  for (const step of result.owed) {
+    assert.equal(typeof step.step, 'string');
+    assert.ok(step.command && String(step.command).trim(), `step "${step.step}" has no command (BR-4)`);
+  }
+});
+
+test('UT-308 the command creates nothing and spawns nothing', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('pending_changes: []', 'pending_changes:\n  - add-mfa')
+  );
+  const before = treeSnapshot(root);
+  next(root, 'add-mfa');
+  const after = treeSnapshot(root);
+  assert.deepEqual([...after.entries()], [...before.entries()], 'next must not create or modify any file (BR-1)');
+
+  const src = readF(KIT, 'lib/next.mjs');
+  assert.equal(
+    /child_process|execSync|execFileSync|spawnSync|\bspawn\(|\bexec\(/.test(src),
+    false,
+    'lib/next.mjs must not reach for a subprocess (BR-1)'
+  );
+});
+
+test('UT-309 owed steps still return normally', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('pending_changes: []', 'pending_changes:\n  - add-mfa')
+  );
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true, 'owed steps are advice, not failure (BR-5)');
+  assert.ok(result.owed.length >= 1);
+});
+
+test('UT-310 a no-domain-knowledge change still owes its verification pass', (root) => {
+  declareNoDomainKnowledge(root);
+  fs.rmSync(path.join(root, CHANGE, 'verification.md'));
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  assert.ok(
+    owesVerification(result),
+    'no domain knowledge does not waive the verification pass (BR-3)'
+  );
+});
+
+test('UT-311 a change the archive gate accepts reports nothing owed', (root) => {
+  const report = check(root, ARCHIVE);
+  assert.equal(report.errors.length, 0, 'precondition: the archive gate must accept the fixture');
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  assert.equal(result.owed.length, 0, 'advisor and gate must agree (BR-3)');
+});
+
+test('NEG-301 a fully ticked checklist does not discharge a pending entry', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('pending_changes: []', 'pending_changes:\n  - add-mfa')
+  );
+  // A verification whose Archive Readiness is fully ticked is still not derivation.
+  edit(root, `${CHANGE}/verification.md`, (t) =>
+    t +
+      '\n# Archive Readiness\n\n- [x] Rule Evidence filled\n- [x] pending_changes cleared\n- [x] decisions promoted\n'
+  );
+  const result = next(root, 'add-mfa');
+  assert.ok(owesVerification(result), 'a checkbox is not derivation (BR-3)');
+});
+
+test('NEG-302 an unknown change id is an argument error', (root) => {
+  const result = next(root, 'does-not-exist');
+  assert.equal(result.answered, false, 'an unknown id is not an empty owed list');
+  assert.match(String(result.error ?? ''), /does-not-exist|no such|unknown|not found/i);
+  assert.equal(result.owed.length, 0);
+});
+
+test('NEG-303 an archived change id is an argument error', (root) => {
+  write(root, 'openspec/changes/archive/2026-01-01-old-change/proposal.md', '## Why\n\nArchived.\n');
+  const result = next(root, 'old-change');
+  assert.equal(result.answered, false, 'next advises on active work, not the archive');
+  assert.match(String(result.error ?? ''), /archiv|active|old-change/i);
+});
+
+test('NEG-304 unresolvable okf-link rows are reported, not treated as clean', (root) => {
+  edit(root, `${CHANGE}/okf-link.md`, (t) =>
+    t.replace('`.okf/features/user-auth.md`', '`.okf/features/missing-capability.md`')
+  );
+  const result = next(root, 'add-mfa');
+  assert.equal(result.answered, true);
+  assert.ok(result.owed.length >= 1, 'unresolvable rows are an obligation, not a clean slate (BR-3)');
+});
+
+test('NEG-305 no argument prints usage', (root) => {
+  const res = okf(root, 'next');
+  assert.equal(res.code, 2, 'missing argument is bad usage');
+  assert.match(res.out, /Usage:|okf next/i);
+});
+
+// ---------------------------------------------------------------------------
+// Entry scope filter and the ask/cite rule.
+// Rules: .okf/features/okf-bundle-format.md (BR-14..BR-17).
+// ---------------------------------------------------------------------------
+
+/**
+ * One artifact's instruction slice from the schema. Anchored at line start so a
+ * bare indexOf on the next id cannot match the same words inside earlier prose -
+ * that already sliced backwards once (see UT-110's note on `apply:`).
+ */
+function instructionFor(schema, artifactId) {
+  const start = schema.search(new RegExp(`^  - id: ${artifactId}\\b`, 'm'));
+  assert.ok(start !== -1, `schema has no artifact "${artifactId}"`);
+  const after = schema.slice(start + 1);
+  const next = after.search(/^  - id: |^apply:/m);
+  return next === -1 ? schema.slice(start) : schema.slice(start, start + 1 + next);
+}
+
+/** The okf-kit addendum body between the versioned markers. */
+function okfKitBlock(text) {
+  const m = /<!-- okf-kit:start[^\n]*-->\n([\s\S]*?)<!-- okf-kit:end -->/.exec(text);
+  assert.ok(m, 'file is missing an okf-kit block');
+  return m[1];
+}
+
+test('UT-501 the okf-link instruction names what does not belong in an entry', () => {
+  const text = instructionFor(readF(KIT, SCHEMA), 'okf-link');
+  assert.match(
+    text,
+    /validation message|form(?:'s)? layout|payload|endpoint/i,
+    'the filter must name content that does not belong'
+  );
+  assert.match(
+    text,
+    /belong(?:s)? (?:in|to) (?:the )?(?:spec|design)|to the spec|to the design/i,
+    'every excluded category must name its destination'
+  );
+});
+
+test('UT-502 the durability test asks about a second change, not about truth', () => {
+  const text = instructionFor(readF(KIT, SCHEMA), 'okf-link');
+  assert.match(
+    text,
+    /second change/i,
+    'the durability test is a question about a second change'
+  );
+  assert.match(
+    text,
+    /(?:still )?need|would .{0,40}need/i,
+    'the question is whether the next change would still need the content'
+  );
+  assert.match(
+    text,
+    /not whether it is (?:true|correct)|rather than .{0,40}(?:true|correct|truth)/i,
+    'truth is what makes the wrong content hard to argue with - the test must reject it'
+  );
+});
+
+test('UT-503 the feature template carries the same filter', () => {
+  const tmpl = readF(KIT, '.okf/templates/feature.md.tmpl');
+  const header = tmpl.slice(0, tmpl.indexOf('# Summary'));
+  assert.match(
+    header,
+    /validation message|form(?:'s)? layout|payload|endpoint|change-local|does not belong/i,
+    'an agent creating an entry reads the template, not the schema'
+  );
+  assert.match(
+    header,
+    /second change|still need|outlives the change/i,
+    'the durability test must travel with the filter'
+  );
+});
+
+test('UT-504 the verification section review directs removal of change-local detail', () => {
+  const text = instructionFor(readF(KIT, SCHEMA), 'verification');
+  // Scope to the section-review step: "change-local" already appears later in
+  // Decision Promotion, and "remove" appears for pending_changes - neither is
+  // the filter.
+  const review = /Review the entry's[\s\S]*?(?=\n\s*\d+\.\s)/.exec(text);
+  assert.ok(review, 'the section-review step must still be present');
+  assert.match(
+    review[0],
+    /change-local|leaked|not durable|does not belong|outlives/i,
+    'the section review must name the content to remove'
+  );
+  assert.match(
+    review[0],
+    /remov(?:e|al)|strip|delete|drop/i,
+    'correcting staleness alone leaves the leak in place'
+  );
+});
+
+test('UT-505 the proposal instruction says a question the entry answers is not asked', () => {
+  const text = instructionFor(readF(KIT, SCHEMA), 'proposal');
+  assert.match(
+    text,
+    /(?:do )?not ask|MUST NOT ask|never ask|without asking|cite .{0,40}(?:rather|instead)/i,
+    'reading the entry must have a consequence - the question is not re-asked'
+  );
+  assert.match(
+    text,
+    /already (?:answers|answered)|entry (?:already )?answers|what the entry/i,
+    'the rule is about what the entry already answers, not a blanket ban on questions'
+  );
+});
+
+test('UT-506 the same instruction names Assumptions and Open Questions as what generates a question', () => {
+  const text = instructionFor(readF(KIT, SCHEMA), 'proposal');
+  // The instruction already mentions those headings as places to write into.
+  // BR-17 is the other direction: they are what a question comes FROM.
+  assert.match(
+    text,
+    /Assumptions.{0,120}Open Questions|Open Questions.{0,120}Assumptions/is,
+    'both halves must be named together'
+  );
+  assert.match(
+    text,
+    /generat(?:e|es|ing) a question|what (?:a |the )?question|ask .{0,80}(?:Assumption|Open Question)|(?:Assumption|Open Question).{0,80}ask/i,
+    'shipping BR-16 alone produces assuming instead of asking'
+  );
+});
+
+test('UT-507 the addendum carries the rule and is identical in both marker files', () => {
+  const agents = okfKitBlock(readF(KIT, 'AGENTS.md'));
+  const claude = okfKitBlock(readF(KIT, 'CLAUDE.md'));
+  assert.equal(agents, claude, 'the two marker files must stay byte-identical');
+  // "do not ask again until a different capability" is already present and is
+  // not BR-16 - require the cite/answered half so a rewording of the decline
+  // branch cannot satisfy this.
+  assert.match(
+    agents,
+    /(?:already answers|entry answers|what the entry)|cite .{0,60}(?:BR-|rule id|rather|instead)/i,
+    'the addendum must carry BR-16'
+  );
+  assert.match(
+    agents,
+    /Assumptions/i,
+    'the addendum must carry BR-17 alongside it'
+  );
+  assert.match(
+    agents,
+    /Open Questions/i,
+    'Assumptions without Open Questions is only half the rule'
+  );
+});
+
+test('UT-508 the clean fixture produces the same findings as before', (root) => {
+  // Captured before this change: the clean fixture archives with zero findings.
+  // This change ships no check, so that count must stay at zero - the claim that
+  // makes "adds no check" a test rather than an intention.
+  const report = check(root, ARCHIVE);
+  assert.equal(
+    report.findings.length,
+    0,
+    'the clean fixture finding count must stay at zero - a new finding here means a check was added'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// What a test-case matrix was asked to consider: the named boundary classes,
+// the four render states, and where an inspectable artefact lands.
+// Rules: .okf/features/test-first-gate.md (BR-13..BR-16).
+// ---------------------------------------------------------------------------
+
+const CASES_TPL = 'openspec/schemas/okf-gated-feature/templates/test-cases.md';
+const CASES = `${CHANGE}/test-cases.md`;
+
+/** The six classes BR-13 names, in the order the proposal lists them. */
+const CLASSES = ['Absence', 'Numeric edge', 'Duplication', 'Staleness', 'Authorisation', 'Scope isolation'];
+
+/** Text from a `# Heading` up to the next one. */
+function sectionOf(text, heading) {
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => l.trim() === `# ${heading}`);
+  assert.ok(start !== -1, `the template must still have a "${heading}" section`);
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => /^#\s/.test(l.trim()));
+  return (end === -1 ? rest : rest.slice(0, end)).join('\n');
+}
+
+/** Body rows of the table under a `# Heading`; header and separator dropped. */
+function tableRowsOf(text, heading) {
+  const rows = [];
+  let seenHeader = false;
+  for (const raw of sectionOf(text, heading).split('\n')) {
+    const line = raw.trim();
+    if (!line.startsWith('|')) continue;
+    if (/^\|[\s|:-]+\|?$/.test(line) && line.includes('-')) continue;
+    if (!seenHeader) {
+      seenHeader = true;
+      continue;
+    }
+    rows.push(line.split('|').slice(1, -1).map((c) => c.trim()));
+  }
+  return rows;
+}
+
+const BOUNDARY_COLUMNS = [
+  '| Class | ID | Priority | Scenario | Expected Result | Source |',
+  '| --- | --- | --- | --- | --- | --- |',
+];
+
+/**
+ * Rewrite the fixture's Negative And Boundary Cases section. `rows` are body
+ * rows only; the empty list is the state BR-13 is about. The replace asserts it
+ * matched, or a test would assert against residue it never wrote.
+ */
+function setBoundaryTable(root, rows) {
+  edit(root, CASES, (t) => {
+    const next = t.replace(
+      /# Negative And Boundary Cases\n[\s\S]*$/,
+      ['# Negative And Boundary Cases', '', ...BOUNDARY_COLUMNS, ...rows, ''].join('\n')
+    );
+    assert.notEqual(next, t, 'setBoundaryTable matched nothing - the fixture no longer has the section it edits');
+    return next;
+  });
+}
+
+const BOUNDARY = /Negative And Boundary Cases table has no rows/;
+
+/** Findings about the boundary table, at any level. */
+const boundaryFindings = (report) =>
+  report.findings.filter((f) => BOUNDARY.test(f.message)).map((f) => `[${f.level}] ${f.message}`);
+
+test('UT-401 the test-cases template seeds one row per boundary class', () => {
+  const tpl = readF(KIT, CASES_TPL);
+  const header = tableHeader(tpl, 'Negative And Boundary Cases');
+  assert.ok(
+    header.some((c) => /^class$/i.test(c)),
+    'without a column of its own a class is a comment again, and a comment is read once and scrolled past'
+  );
+  const seeded = tableRowsOf(tpl, 'Negative And Boundary Cases').map((cells) => cells[0].toLowerCase());
+  for (const cls of CLASSES) {
+    assert.ok(
+      seeded.includes(cls.toLowerCase()),
+      `the template seeds no row for "${cls}" - an author is only prompted by the classes named here`
+    );
+  }
+});
+
+test('UT-402 the test-cases instruction says discharge rather than delete', () => {
+  const rule = instructionFor(readF(KIT, SCHEMA), 'test-cases');
+  for (const cls of CLASSES) {
+    assert.match(rule, new RegExp(cls.replace(' ', '\\s+'), 'i'), `the instruction never names the "${cls}" class`);
+  }
+  assert.match(
+    rule,
+    /discharg\w*\s+with\s+a\s+stated\s+reason/i,
+    'the instruction must say how an untouched class is answered for'
+  );
+  assert.match(
+    rule,
+    /(rather than|not by|never by|instead of)\s+delet/i,
+    '"this feature has no tenant boundary" must read differently from "nobody considered tenants"'
+  );
+});
+
+test('UT-403 the browser section names four render states and the console question', () => {
+  const section = sectionOf(readF(KIT, CASES_TPL), 'Browser E2E Scenarios');
+  for (const state of ['loading', 'error', 'empty', 'populated']) {
+    assert.match(
+      section,
+      new RegExp(`\\b${state}\\b`, 'i'),
+      `the browser section never names the ${state} state - three of the four are what an author never sees`
+    );
+  }
+  assert.match(
+    section,
+    /console/i,
+    'an interface that reports failure only to the console has failed silently to the user'
+  );
+});
+
+test('UT-404 the test-plan and verification templates carry an Artifacts column', () => {
+  const artifacts = (cells) => cells.some((c) => /^artifacts$/i.test(c));
+  assert.ok(
+    artifacts(tableHeader(readF(KIT, TESTPLAN_TPL), 'E2E Tests')),
+    'the plan is where a test says what it will produce'
+  );
+  assert.ok(
+    artifacts(tableHeader(readF(KIT, VERIFY_TPL), 'Browser E2E Tests')),
+    'adding it to one template only leaves the artefact planned and never located'
+  );
+});
+
+test('UT-405 an empty boundary table warns while specs hold scenarios', (root) => {
+  setBoundaryTable(root, []);
+  const hits = check(root, ARCHIVE).findings.filter((f) => BOUNDARY.test(f.message));
+  assert.equal(
+    hits.length,
+    1,
+    'an empty table records that nobody was asked to think of any boundary class (BR-13)'
+  );
+  assert.equal(
+    hits[0].level,
+    'warn',
+    'whether six classes were genuinely considered is not observable, so the checker must never error on it'
+  );
+});
+
+test('UT-406 a filled boundary table is silent', (root) => {
+  setBoundaryTable(root, ['| Duplication | NEG-002 | should | The same factor is submitted twice | the second submission is ignored | BR-1 |']);
+  assert.deepEqual(
+    boundaryFindings(check(root, ARCHIVE)),
+    [],
+    'the check notices total silence and nothing else'
+  );
+});
+
+test('UT-407 no shipped template names a browser-automation tool', () => {
+  const tool = /\b(playwright|cypress|puppeteer|selenium|webdriver|chromedriver|testcafe|nightwatch)\b/i;
+  const dir = path.join(SCHEMA_DIR, 'templates');
+  const offenders = [];
+  for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.md'))) {
+    for (const line of fs.readFileSync(path.join(dir, name), 'utf8').split('\n')) {
+      if (tool.test(line)) offenders.push(`${name}: ${line.trim()}`);
+    }
+  }
+  assert.deepEqual(offenders, [], 'BR-16 asks where the artefact lands, not what produced it');
+});
+
+test('UT-408 a change with no interface discharges the class cleanly', (root) => {
+  edit(root, CASES, (t) =>
+    `${t}\n# Not Applicable\n\n| Area | Reason | Approved By |\n| --- | --- | --- |\n` +
+      '| Browser E2E, and the four render states | this change ships no user interface of any kind | change author |\n'
+  );
+  assert.deepEqual(
+    boundaryFindings(check(root, ARCHIVE)),
+    [],
+    'a class discharged with a stated reason is the mechanism working, not a gap (BR-14, BR-15)'
+  );
+});
+
+test('NEG-401 a boundary table holding only a blank row counts as empty', (root) => {
+  setBoundaryTable(root, ['|  |  |  |  |  |  |']);
+  assert.equal(
+    boundaryFindings(check(root, ARCHIVE)).length,
+    1,
+    'the template ships a blank row, so counting it as a row makes the warning unreachable'
+  );
+});
+
+test('NEG-402 two rows for one class are both accepted', (root) => {
+  setBoundaryTable(root, [
+    '| Absence | NEG-003 | must | No factor at all | the session is refused | BR-1 |',
+    '| Absence | NEG-004 | should | An empty factor string | the session is refused | BR-1 |',
+  ]);
+  assert.deepEqual(
+    boundaryFindings(check(root, ARCHIVE)),
+    [],
+    'the check counts rows and never classes - counting classes would require judging what a class is'
   );
 });
 

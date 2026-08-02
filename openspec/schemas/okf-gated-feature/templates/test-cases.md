@@ -72,19 +72,47 @@ A rule with no test case is a rule nothing protects.
 
 # Browser E2E Scenarios
 
-<!-- User journeys through the browser. Omit if the feature has no UI. -->
+<!--
+User journeys through the browser. If the change has no user interface, delete
+this section and discharge it in the Not Applicable table with a reason.
 
-| ID | Priority | Scenario | Given | When | Then | Source |
-| --- | --- | --- | --- | --- | --- | --- |
-| UI-E2E-001 | must |  |  |  |  |  |
+If it has one, answer for all four render states - loading, error, empty, and
+populated - and for whether the interface reports failure to the user rather
+than only to the console. Three of the four are the ones an author testing
+their own feature never sees, because the populated happy path is the one they
+built. The Artifacts column of the test-plan is where a screenshot, recording,
+or captured page from these scenarios says where it lands.
+-->
+
+| ID | Priority | Render State | Scenario | Given | When | Then | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| UI-E2E-001 | must | loading |  |  |  |  |  |
+| UI-E2E-002 | must | error |  |  |  |  |  |
+| UI-E2E-003 | must | empty |  |  |  |  |  |
+| UI-E2E-004 | must | populated |  |  |  |  |  |
+| UI-E2E-005 | must | failure is reported to the user, not only to the console |  |  |  |  |  |
 
 # Negative And Boundary Cases
 
-<!-- Denied actions, invalid transitions, duplicates, empty input, limits, stale data, concurrency, permission failures. -->
+<!--
+The Class column is seeded, not blank: these are the classes an unprompted
+author reliably misses two of, and a class only prompts once it has a row with
+an empty cell in it.
 
-| ID | Priority | Scenario | Expected Result | Source |
-| --- | --- | --- | --- | --- |
-| NEG-001 | must |  |  |  |
+A class this change genuinely does not touch is discharged with a stated reason
+in the Not Applicable table, rather than deleting its row - so that "this
+feature has no tenant boundary" reads differently from "nobody considered
+tenants". Add classes beyond these six wherever the domain has them.
+-->
+
+| Class | ID | Priority | Scenario | Expected Result | Source |
+| --- | --- | --- | --- | --- | --- |
+| Absence | NEG-001 | must |  |  |  |
+| Numeric edge | NEG-002 | must |  |  |  |
+| Duplication | NEG-003 | must |  |  |  |
+| Staleness | NEG-004 | must |  |  |  |
+| Authorisation | NEG-005 | must |  |  |  |
+| Scope isolation | NEG-006 | must |  |  |  |
 
 # Not Applicable
 

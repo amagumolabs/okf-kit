@@ -60,7 +60,12 @@ HOW TO USE THIS TEMPLATE
      verification pass from the evidence table in `verification.md`.
 
 5. Keep this file about domain and product behavior. Requirements and scenarios
-   belong in OpenSpec specs, which quote the `BR-n` IDs from here.
+   belong in OpenSpec specs, which quote the `BR-n` IDs from here. An entry
+   holds only knowledge that outlives the change which introduced it. A field's
+   validation message, a form's layout, the shape of one endpoint's payload -
+   these do not belong here. Requirement wording belongs in the spec; structural
+   choices belong in the design. The test is not whether the content is true:
+   ask whether a second change to this capability would still need it.
 -->
 
 # Summary

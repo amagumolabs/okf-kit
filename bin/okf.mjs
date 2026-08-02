@@ -8,6 +8,7 @@ import { check } from '../lib/check.mjs';
 import { buildIndex, buildLog, writeIndex } from '../lib/index-gen.mjs';
 import { install } from '../lib/install.mjs';
 import { migrate } from '../lib/migrate.mjs';
+import { next } from '../lib/next.mjs';
 
 const KIT_ROOT = path.resolve(import.meta.dirname, '..');
 const VERSION = JSON.parse(fs.readFileSync(path.join(KIT_ROOT, 'package.json'), 'utf8')).version;
@@ -18,6 +19,7 @@ Usage:
   okf init    [--root <dir>] [--dry-run]
   okf upgrade [--root <dir>] [--dry-run] [--force]
   okf check   [--archive <change-id>] [--root <dir>] [--json]
+  okf next    <change-id> [--root <dir>]
   okf audit   [--root <dir>] [--json]
   okf index   [--check] [--root <dir>]
   okf migrate [--root <dir>] [--dry-run]
@@ -36,6 +38,11 @@ Commands:
             --archive <change-id> adds the pre-archive checks: the verification
             pass recorded, pending_changes cleared, no skeleton test left
             without an owner.
+
+  next      Report what a change still owes under .okf/, with the command that
+            discharges each step. Advises only - never writes, never refuses.
+            Exit status says whether the question could be answered, not whether
+            steps remain. When nothing is owed, names \`okf check --archive\`.
 
   audit     Report entries whose declared code_paths have commits newer than
             their verified_at, so drift from work that never opened a change
@@ -56,7 +63,7 @@ Exit codes: 0 clean, 1 problems found, 2 bad usage.
 `;
 
 function parseArgs(argv) {
-  const out = { command: argv[0], root: process.cwd(), flags: {} };
+  const out = { command: argv[0], root: process.cwd(), flags: {}, changeId: null };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--archive') out.flags.archive = argv[++i];
@@ -66,6 +73,7 @@ function parseArgs(argv) {
     else if (a === '--dry-run') out.flags.dryRun = true;
     else if (a === '--force') out.flags.force = true;
     else if (a === '-h' || a === '--help') out.flags.help = true;
+    else if (!a.startsWith('-') && out.changeId === null) out.changeId = a;
     else return { error: `unknown argument: ${a}` };
   }
   return out;
@@ -223,6 +231,34 @@ function runMigrate(args) {
   return res.unparseable.length ? 1 : 0;
 }
 
+function runNext(args) {
+  if (!args.changeId) {
+    console.error('okf next: missing <change-id>\n');
+    process.stdout.write(USAGE);
+    return 2;
+  }
+
+  const root = findRoot(args.root);
+  const result = next(root, args.changeId);
+
+  if (!result.answered) {
+    console.error(`okf next: ${result.error ?? 'could not answer'}`);
+    return 2;
+  }
+
+  if (result.owed.length) {
+    for (const step of result.owed) {
+      console.log(`${step.step}`);
+      console.log(`  → ${step.command}`);
+    }
+  } else if (result.statement) {
+    console.log(result.statement);
+  } else {
+    console.log(`Nothing owed under .okf/. Confirm with: okf check --archive ${args.changeId}`);
+  }
+  return 0;
+}
+
 function runInstall(args, mode) {
   const root = mode === 'init' ? args.root : findRoot(args.root);
   if (path.resolve(root) === KIT_ROOT) {
@@ -304,6 +340,8 @@ function main() {
       return runInstall(args, 'upgrade');
     case 'check':
       return runCheck(args);
+    case 'next':
+      return runNext(args);
     case 'audit':
       return runAudit(args);
     case 'index':

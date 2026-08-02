@@ -18,7 +18,7 @@ Background reading, not needed in every session: `.okf/README.md` (what belongs
 in OKF, what the frontmatter states mean) and `docs/openspec-okf-workflow.md`
 (the full lifecycle and who enforces what).
 
-<!-- okf-kit:start v0.5.0 -->
+<!-- okf-kit:start v0.6.0 -->
 ## OKF Addendum
 
 Managed by okf-kit. Do not edit inside these markers - changes are overwritten on
@@ -41,6 +41,10 @@ actors and roles, data entities, permissions, workflows, or business rules. One
 of them is enough. A `BR-n` is the most visible kind, not the only kind - a
 capability can carry permissions and terms long before any rule is settled, and
 reading the test as "no rule, so nothing to save" loses exactly those.
+
+A question an entry already answers is not asked - cite the rule id and move on.
+The entry's Assumptions and Open Questions are exactly what should generate a
+question.
 
 - When the conversation crystallizes around one concrete, nameable capability -
   not an open-ended idea - and that capability has domain knowledge, ask:
