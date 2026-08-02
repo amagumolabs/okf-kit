@@ -9,8 +9,12 @@ and can be upgraded without hand-copying files.
 - Two gates: an OKF entry must exist before implementation, and so must a
   test-plan.
 
-Read `docs/openspec-okf-workflow.md` for how it fits together and what it does
-*not* guarantee. Read `.okf/README.md` for what belongs in a knowledge entry.
+Start with `docs/workflow-at-a-glance.md` for the diagrams: how a change and a
+knowledge entry move together from explore to archive. Then
+`docs/okf-kit-overview.md` for the team-facing picture (what the kit solves vs
+using OpenSpec + OKF traditionally, plus the implement workflow).
+Read `docs/openspec-okf-workflow.md` for mechanics and what it does *not*
+guarantee. Read `.okf/README.md` for what belongs in a knowledge entry.
 
 ## Install into a project
 
@@ -22,7 +26,7 @@ first and `okf init` replaces that file afterwards.
 npx openspec init --tools claude,codex,cursor
 
 # 2. This kit (pin a tag - the version is what makes upgrades traceable)
-npm i -D github:danhnguyeen/openspec#v0.4.1
+npm i -D github:amagumolabs/okf-kit#v0.4.1
 
 # 3. Install the schema, templates, and the CLAUDE.md / AGENTS.md addendum
 npx okf init
@@ -42,7 +46,7 @@ assumed.
 ## Upgrade
 
 ```bash
-npm i -D github:danhnguyeen/openspec#v0.4.2
+npm i -D github:amagumolabs/okf-kit#v0.4.2
 npx okf upgrade --dry-run   # see what would change
 npx okf upgrade
 ```
