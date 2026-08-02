@@ -238,6 +238,13 @@ const VERIFICATION = `# Verification
 | --- | --- | --- | --- | --- | --- |
 | user-auth | \`.okf/features/user-auth.md\` | verified | 2026-07-30 | yes | yes |
 
+# Static Analysis
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Lint | \`npm run lint\` | clean, 0 errors 0 warnings |
+| Typecheck | \`npm run typecheck\` | clean, 0 errors |
+
 # Decision Promotion
 
 | Decision | Promoted To | Reason If Not Promoted |
@@ -1296,6 +1303,32 @@ function setPromotion(root, rows) {
 const promotionFindings = (report) =>
   report.findings.filter((f) => /[Dd]ecision/.test(f.message)).map((f) => `[${f.level}] ${f.message}`);
 
+/**
+ * Rewrite the fixture's Static Analysis section. `rows` are body rows only;
+ * passing `null` removes the section entirely, which is how a change written
+ * under the previous template looks.
+ */
+function setStaticAnalysis(root, rows) {
+  const table =
+    rows === null
+      ? ''
+      : ['# Static Analysis', '', '| Check | Command | Result |', '| --- | --- | --- |', ...rows, '', ''].join('\n');
+  edit(root, `${CHANGE}/verification.md`, (t) => {
+    const next = t.replace(/# Static Analysis\n[\s\S]*?(?=^# )/m, table);
+    assert.notEqual(next, t, 'setStaticAnalysis matched nothing - the fixture no longer has the section it edits');
+    return next;
+  });
+}
+
+/** Findings whose message mentions the static analysis gate, at any level. */
+const staticFindings = (report) =>
+  report.findings
+    .filter((f) => /[Ss]tatic [Aa]nalysis|\bLint\b|\bTypecheck\b/.test(f.message))
+    .map((f) => `[${f.level}] ${f.message}`);
+
+const LINT_OK = '| Lint | `npm run lint` | clean, 0 errors 0 warnings |';
+const TYPE_OK = '| Typecheck | `npm run typecheck` | clean, 0 errors |';
+
 /** Make every okf-link row declare no domain knowledge, so nothing resolves. */
 function declareNoDomainKnowledge(root) {
   edit(root, `${CHANGE}/okf-link.md`, (t) =>
@@ -1327,6 +1360,13 @@ test('UT-012 entry-scoped gates stay silent when no okf-link row resolves', (roo
       '',
       '| Capability | OKF File | Resulting Verified | verified_at | code_paths Filled | This Change Removed From pending_changes |',
       '| --- | --- | --- | --- | --- | --- |',
+      '',
+      '# Static Analysis',
+      '',
+      '| Check | Command | Result |',
+      '| --- | --- | --- |',
+      '| Lint | `npm run lint` | clean |',
+      '| Typecheck | `npm run typecheck` | clean |',
       '',
       '# Decision Promotion',
       '',
@@ -1493,6 +1533,170 @@ test('UT-015 the waiver phrase the gate matches occurs in the schema own design 
     /Not required because/,
     'the gate recognises a waiver by this phrase; if the schema stops mandating it, the gate silently waives every change'
   );
+  void root;
+});
+
+// --- the static analysis gate (BR-9..BR-12) ---------------------------------
+
+test('UT-100 the clean fixture stays archivable with a satisfied static analysis table', (root) => {
+  assert.deepEqual(staticFindings(check(root, ARCHIVE)), [], 'a satisfied table must produce nothing');
+});
+
+test('UT-101 archive mode blocks a verification with no static analysis table', (root) => {
+  setStaticAnalysis(root, null);
+  assertError(check(root, ARCHIVE), /Static Analysis table/, 'a green suite is not evidence that the code compiles');
+});
+
+test('UT-102 the same verification only warns before the archive boundary', (root) => {
+  setStaticAnalysis(root, null);
+  const report = check(root);
+  assertWarn(report, /Static Analysis table/, 'a result is not knowable before the code that produces it is written');
+  assert.deepEqual(
+    report.findings.filter((f) => f.level === 'error'),
+    [],
+    'an in-flight change must not be blocked by a record it cannot yet fill'
+  );
+});
+
+test('UT-103 a table with no Typecheck row is blocked', (root) => {
+  setStaticAnalysis(root, [LINT_OK]);
+  assertError(check(root, ARCHIVE), /Typecheck/, 'a deleted row must not read the same as a project without one');
+});
+
+test('UT-104 a table with no Lint row is blocked', (root) => {
+  setStaticAnalysis(root, [TYPE_OK]);
+  assertError(check(root, ARCHIVE), /Lint/, 'both required rows are checked, not just the first');
+});
+
+test('UT-105 a row with an empty result is blocked', (root) => {
+  setStaticAnalysis(root, [LINT_OK, '| Typecheck | `npm run typecheck` |  |']);
+  assertError(check(root, ARCHIVE), /Typecheck/, 'a command with no result records that nobody looked');
+});
+
+test('UT-106b a row left as a template placeholder is reported through its empty result', (root) => {
+  // The command column is not gated. A row nobody filled in has no result either,
+  // and the result is what BR-11 reads - so the untouched template row is still
+  // caught, without a second placeholder implementation to drift out of date.
+  setStaticAnalysis(root, [LINT_OK, '| Typecheck | `<typecheck-command>` |  |']);
+  const report = check(root, ARCHIVE);
+  assertError(report, /Typecheck/, 'an untouched template row must not archive');
+  assert.deepEqual(
+    staticFindings(report).filter((s) => /placeholder/.test(s)),
+    [],
+    'the gate says nothing about the command column'
+  );
+});
+
+test('UT-107 a row discharged with a stated reason is accepted', (root) => {
+  setStaticAnalysis(root, [
+    LINT_OK,
+    '| Typecheck | - | Not Applicable because the project is plain ESM with no type checker |',
+  ]);
+  assert.deepEqual(staticFindings(check(root, ARCHIVE)), [], 'a stated reason discharges a required row');
+});
+
+test('UT-108 the gate reads reported results and runs nothing', (root) => {
+  // Asserted over the source rather than by stubbing `node:child_process`: an ESM
+  // import binds at import time, so patching the namespace afterwards would leave
+  // a captured binding live and the test would pass while the gate shelled out.
+  // Reading the import graph cannot be fooled that way.
+  // Scoped to check.mjs, where the gate lives. `lib/audit.mjs` shells out to git
+  // by design; BR-12 constrains the gate, not the kit.
+  assert.equal(
+    /child_process|execSync|execFileSync|spawnSync|\bspawn\(/.test(readF(KIT, 'lib/check.mjs')),
+    false,
+    'lib/check.mjs reaches for a subprocess - the gate records what a change reported, it does not re-run it (BR-12)'
+  );
+
+  setStaticAnalysis(root, ['| Lint | `rm -rf /nonexistent-and-fatal` | clean |', TYPE_OK]);
+  assert.deepEqual(staticFindings(check(root, ARCHIVE)), [], 'the command column is read, never executed');
+});
+
+test('UT-109 the static analysis gate reaches a change with no linked entries', (root) => {
+  declareNoDomainKnowledge(root);
+  setStaticAnalysis(root, null);
+  assertError(check(root, ARCHIVE), /Static Analysis table/, 'the escape hatch waives one entry, not every gate');
+});
+
+test('UT-111 an extra row is accepted and unconstrained', (root) => {
+  setStaticAnalysis(root, [LINT_OK, TYPE_OK, '| Build | `npm run build` | clean |']);
+  assert.deepEqual(staticFindings(check(root, ARCHIVE)), [], 'the required set is two rows, not a closed vocabulary');
+});
+
+test('NEG-101 a result cell holding a dash is blocked', (root) => {
+  setStaticAnalysis(root, [LINT_OK, '| Typecheck | `npm run typecheck` | - |']);
+  assertError(check(root, ARCHIVE), /Typecheck/, 'a dash and an empty cell both read as absent everywhere else here');
+});
+
+test('NEG-102 a bare Not Applicable with no reason is blocked', (root) => {
+  setStaticAnalysis(root, [LINT_OK, '| Typecheck | - | Not Applicable |']);
+  assertError(check(root, ARCHIVE), /Typecheck/, 'a reason that names nothing is not a reason');
+});
+
+test('NEG-103 a result reading not run is blocked', (root) => {
+  setStaticAnalysis(root, [LINT_OK, '| Typecheck | `npm run typecheck` | not run |']);
+  assertError(check(root, ARCHIVE), /Typecheck/, 'a non-result is not a result');
+});
+
+test('NEG-104 a table holding only the template blank row counts as empty', (root) => {
+  setStaticAnalysis(root, ['|  |  |  |']);
+  assertError(check(root, ARCHIVE), /Static Analysis table/, 'a blank row is not a filled row');
+});
+
+test('NEG-105 a Check cell spelled "Type check" is accepted', (root) => {
+  setStaticAnalysis(root, [LINT_OK, '| Type check | `npm run typecheck` | clean |']);
+  assert.deepEqual(
+    staticFindings(check(root, ARCHIVE)),
+    [],
+    'a required row that fails on spelling teaches agents to fight the matcher, not to run the checker'
+  );
+});
+
+const VERIFY_TPL = 'openspec/schemas/okf-gated-feature/templates/verification.md';
+const TESTPLAN_TPL = 'openspec/schemas/okf-gated-feature/templates/test-plan.md';
+const SCHEMA = 'openspec/schemas/okf-gated-feature/schema.yaml';
+
+test('UT-110 the schema and verification template state the static analysis table is enforced', (root) => {
+  const schema = readF(KIT, SCHEMA);
+  // `\napply:` at column zero. A bare 'apply:' also matches the design
+  // instruction's "Write a real design if any apply:", which slices backwards.
+  const verifyRule = schema.slice(schema.indexOf('- id: verification'), schema.search(/^apply:/m));
+  assert.match(verifyRule, /Static Analysis/, 'the instruction must name the artifact it demands');
+  assert.match(
+    verifyRule,
+    /enforced|checked by `?okf check|`okf check --archive`/,
+    'an agent reading the instruction must not be told a checkbox suffices'
+  );
+  assert.match(readF(KIT, VERIFY_TPL), /# Static Analysis/, 'the template must carry the section');
+  void root;
+});
+
+test('UT-112 the test-plan template carries lint and typecheck commands', (root) => {
+  const tpl = readF(KIT, TESTPLAN_TPL);
+  const commands = tpl.slice(tpl.indexOf('# Commands'));
+  assert.match(commands, /##\s*Lint/i, 'the plan is where the command is chosen');
+  assert.match(commands, /##\s*Typecheck/i, 'both required categories, not just the first');
+  void root;
+});
+
+test('UT-113 no shipped template names an ecosystem', (root) => {
+  // The gate never reads the command column, so a shipped default would be a
+  // shipped assumption about the ecosystem and nothing else.
+  const ecosystem = /\b(npm run|npx|yarn|pnpm|cargo|go test|mvn|gradle|poetry|pip|bundle exec|ruff|eslint|tsc|mypy)\b/;
+  for (const rel of [VERIFY_TPL, TESTPLAN_TPL]) {
+    const hits = readF(KIT, rel)
+      .split('\n')
+      .filter((l) => ecosystem.test(l));
+    assert.deepEqual(hits, [], `${rel} ships a command specific to one ecosystem`);
+  }
+  void root;
+});
+
+test('UT-114 the test-plan instruction names where a project declares its commands', (root) => {
+  const schema = readF(KIT, SCHEMA);
+  const planRule = schema.slice(schema.indexOf('- id: test-plan'), schema.indexOf('- id: tasks'));
+  assert.match(planRule, /AGENTS\.md/, 'the declaration site must be named, or every change re-derives it');
+  assert.match(planRule, /outside the (okf-kit )?markers?/i, 'inside the markers is overwritten on upgrade');
   void root;
 });
 

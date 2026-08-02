@@ -14,6 +14,7 @@ check was not run, say so and explain the risk.
 | Integration tests | not run |  |
 | API E2E tests | not run |  |
 | Browser E2E tests | not run |  |
+| Static analysis | not run |  |
 | OKF verification | not run |  |
 | OKF validation (`okf check`) | not run |  |
 | Archive readiness | not ready |  |
@@ -80,6 +81,37 @@ Command:
 Result:
 
 <!-- Paste or summarize the actual result, or explain why browser E2E is not applicable. -->
+
+# Static Analysis
+
+<!--
+ENFORCED by `okf check --archive`, which reads the Result column. Tests and
+static analysis fail on disjoint defect classes: a test fails on behavior it
+observed, a type checker on a branch no test ever reached. A green suite is
+therefore not evidence that the code lints or type-checks.
+
+Lint and Typecheck are required rows. A project that runs neither keeps the row
+and answers `Not Applicable because <specific reason>` - a deleted row reads the
+same as an oversight, which is the distinction every escape hatch here exists to
+preserve. Further rows (Build, Format, a security scan) are welcome and
+unconstrained.
+
+Check names the category, Command names what this project actually runs. The
+category is what the gate matches, so the row survives changing one tool for
+another. Take the commands from the project's own declaration in `AGENTS.md`,
+outside the okf-kit markers.
+
+The kit reads what you report here and never runs it. That is a deliberate
+boundary, not an oversight: a validator that executes commands out of whatever
+repository it is pointed at is a different kind of tool, and CI already runs
+them. What this table buys is that the claim is written where a reviewer can
+compare it against CI.
+-->
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Lint | `<lint-command>` |  |
+| Typecheck | `<typecheck-command>` |  |
 
 # OKF Validation
 
@@ -186,6 +218,7 @@ rows to silence it.
 - [ ] Unit test result recorded
 - [ ] Integration test result recorded
 - [ ] E2E result recorded, or marked not applicable with a specific reason
+- [ ] Static Analysis table filled: a real result per required row, or a stated reason (enforced - see Static Analysis above)
 - [ ] Every `skeleton` / `planned` test row appears in the test-plan Known Gaps with an owner
 - [ ] Rule Evidence table filled with real `file:line` or test references for every BR-n touched
 - [ ] Every linked entry: `verified` set, `verified_at` set, `code_paths` filled, this change id removed from `pending_changes`

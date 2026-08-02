@@ -19,7 +19,7 @@ regenerations - that column is the only hand-written content in this file.
 
 | Capability | Verified | Verified At | Pending Changes | Criticality | Status |
 | --- | --- | --- | --- | --- | --- |
-| [okf-archive-gate](features/okf-archive-gate.md) | verified | 2026-07-30 | - | normal | stable |
+| [okf-archive-gate](features/okf-archive-gate.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-audit](features/okf-audit.md) | verified | 2026-08-01 | - | normal | stable |
 | [okf-bundle-format](features/okf-bundle-format.md) | verified | 2026-08-01 | - | normal | stable |
 | [okf-durable-references](features/okf-durable-references.md) | verified | 2026-08-02 | - | normal | stable |
@@ -39,6 +39,7 @@ regenerations - that column is the only hand-written content in this file.
 | [Migration is a separate command, and upgrade keeps its payload boundary](decisions/2026-08-01-migration-is-its-own-command.md) | 2026-08-01 | accepted | okf-migrate |
 | [stale_after is not adopted; absence of an attestation already encodes distrust](decisions/2026-08-01-stale-after-is-not-adopted.md) | 2026-08-01 | accepted | okf-bundle-format |
 | [Workflow state lives in verification_state, never in the specification's verified key](decisions/2026-08-01-workflow-state-leaves-the-specification-key.md) | 2026-08-01 | accepted | okf-bundle-format |
+| [A project declares its own commands in AGENTS.md, not in kit-owned config](decisions/2026-08-02-a-project-declares-its-commands-in-its-own-agents-file.md) | 2026-08-02 | accepted | okf-archive-gate |
 | [A recorded test change answers with a resolving citation or a named mechanical defect](decisions/2026-08-02-a-test-change-answers-with-a-citation-or-a-named-defect.md) | 2026-08-02 | accepted | test-first-gate |
 | [A bundle content rule discriminates by shape, never by a list of excused files](decisions/2026-08-02-bundle-content-rules-discriminate-by-shape.md) | 2026-08-02 | accepted | okf-durable-references |
 | [Every test file is created before implementation, in a task group of its own](decisions/2026-08-02-every-test-file-precedes-the-implementation.md) | 2026-08-02 | accepted | test-first-gate |
@@ -48,6 +49,7 @@ regenerations - that column is the only hand-written content in this file.
 | [Exemption from a frontmatter requirement is not exemption from a content rule](decisions/2026-08-02-structural-exemption-is-not-content-exemption.md) | 2026-08-02 | accepted | okf-durable-references, okf-bundle-format |
 | [The check reaches the recorded test change only, and the kit says so](decisions/2026-08-02-the-check-reaches-the-recorded-test-change-only.md) | 2026-08-02 | accepted | test-first-gate |
 | [The falsifier is recorded in the test-plan, not in test-cases](decisions/2026-08-02-the-falsifier-is-recorded-in-the-test-plan.md) | 2026-08-02 | accepted | test-first-gate |
+| [The kit records the evidence a change reports; it never reproduces it](decisions/2026-08-02-the-kit-records-reported-evidence-it-does-not-reproduce-it.md) | 2026-08-02 | accepted | okf-archive-gate, test-first-gate |
 | [The kit records test ordering; it does not verify it](decisions/2026-08-02-the-kit-records-test-ordering-it-does-not-verify-it.md) | 2026-08-02 | accepted | test-first-gate |
 
 ## Needs Revision Ledger
