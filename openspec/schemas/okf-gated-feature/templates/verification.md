@@ -80,7 +80,21 @@ Command:
 
 Result:
 
-<!-- Paste or summarize the actual result, or explain why browser E2E is not applicable. -->
+<!--
+Paste or summarize the actual result, or explain why browser E2E is not
+applicable.
+
+One row per render state the change has an interface for. Artifacts records
+where a screenshot, recording, or captured page actually landed - a path, a CI
+artefact name, a run URL. The plan said where it would go; this says where it
+is. A run that produced nothing writes `-`.
+
+Delete the table entirely when the change has no user interface, and say so in
+the Result above.
+-->
+
+| Render State Or Scenario | Result | Artifacts |
+| --- | --- | --- |
 
 # Static Analysis
 

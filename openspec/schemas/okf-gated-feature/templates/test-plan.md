@@ -93,10 +93,19 @@ its tests last produces too.
 
 # E2E Tests
 
-<!-- Same two columns, same reason. Designed before implementation, `skeleton` until the API/UI flow is stable enough to run. -->
+<!--
+Same two status columns, same reason. Designed before implementation,
+`skeleton` until the API/UI flow is stable enough to run.
 
-| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
+Artifacts is where a test that produces something a human can inspect - a
+screenshot, a recording, a captured page - says the thing lands. An artefact
+nobody can find is evidence nobody has. A row that produces nothing writes `-`,
+as everywhere else here. No tool is prescribed: the question is where the
+artefact ends up, not what took it.
+-->
+
+| Test Case ID | Test File | Test Name | Initial Status | Status | Artifacts | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
 
 # Test Data And Fixtures
 

@@ -19,12 +19,14 @@ regenerations - that column is the only hand-written content in this file.
 
 | Capability | Verified | Verified At | Pending Changes | Criticality | Status |
 | --- | --- | --- | --- | --- | --- |
+| [artifact-hygiene](features/artifact-hygiene.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-archive-gate](features/okf-archive-gate.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-audit](features/okf-audit.md) | verified | 2026-08-01 | - | normal | stable |
-| [okf-bundle-format](features/okf-bundle-format.md) | verified | 2026-08-01 | - | normal | stable |
+| [okf-bundle-format](features/okf-bundle-format.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-durable-references](features/okf-durable-references.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-migrate](features/okf-migrate.md) | verified | 2026-08-01 | - | normal | stable |
-| [test-first-gate](features/test-first-gate.md) | verified | 2026-08-02 | - | normal | stable |
+| [okf-next](features/okf-next.md) | verified | 2026-08-02 | - | normal | stable |
+| [test-first-gate](features/test-first-gate.md) | verified | 2026-08-03 | - | normal | stable |
 
 ## Decisions
 
@@ -39,18 +41,26 @@ regenerations - that column is the only hand-written content in this file.
 | [Migration is a separate command, and upgrade keeps its payload boundary](decisions/2026-08-01-migration-is-its-own-command.md) | 2026-08-01 | accepted | okf-migrate |
 | [stale_after is not adopted; absence of an attestation already encodes distrust](decisions/2026-08-01-stale-after-is-not-adopted.md) | 2026-08-01 | accepted | okf-bundle-format |
 | [Workflow state lives in verification_state, never in the specification's verified key](decisions/2026-08-01-workflow-state-leaves-the-specification-key.md) | 2026-08-01 | accepted | okf-bundle-format |
+| [An inline code span quotes for hygiene and not for reference detection](decisions/2026-08-02-a-code-span-quotes-for-hygiene-and-not-for-reference-detection.md) | 2026-08-02 | accepted | artifact-hygiene, okf-durable-references |
 | [A project declares its own commands in AGENTS.md, not in kit-owned config](decisions/2026-08-02-a-project-declares-its-commands-in-its-own-agents-file.md) | 2026-08-02 | accepted | okf-archive-gate |
 | [A recorded test change answers with a resolving citation or a named mechanical defect](decisions/2026-08-02-a-test-change-answers-with-a-citation-or-a-named-defect.md) | 2026-08-02 | accepted | test-first-gate |
+| [Advice and refusal stay in different commands](decisions/2026-08-02-advice-and-refusal-stay-in-different-commands.md) | 2026-08-02 | accepted | okf-next |
 | [A bundle content rule discriminates by shape, never by a list of excused files](decisions/2026-08-02-bundle-content-rules-discriminate-by-shape.md) | 2026-08-02 | accepted | okf-durable-references |
+| [Every owed step carries its discharging command](decisions/2026-08-02-every-owed-step-carries-its-discharging-command.md) | 2026-08-02 | accepted | okf-next |
 | [Every test file is created before implementation, in a task group of its own](decisions/2026-08-02-every-test-file-precedes-the-implementation.md) | 2026-08-02 | accepted | test-first-gate |
 | [A fenced code block is how a document exempts itself from a content rule](decisions/2026-08-02-fencing-is-the-sanctioned-escape-hatch.md) | 2026-08-02 | accepted | okf-durable-references |
+| [No checker for judgements about meaning](decisions/2026-08-02-no-checker-for-meaning-judgements.md) | 2026-08-02 | accepted | okf-bundle-format |
 | [Required records harden at the archive boundary](decisions/2026-08-02-required-records-harden-at-the-archive-boundary.md) | 2026-08-02 | accepted | test-first-gate |
+| [Shared change-state reads are extracted, not copied](decisions/2026-08-02-shared-change-state-reads-are-extracted.md) | 2026-08-02 | accepted | okf-next, okf-archive-gate |
 | [A test-plan table's live status is Status; Initial Status is history](decisions/2026-08-02-status-is-live-and-initial-status-is-history.md) | 2026-08-02 | accepted | test-first-gate, okf-archive-gate |
 | [Exemption from a frontmatter requirement is not exemption from a content rule](decisions/2026-08-02-structural-exemption-is-not-content-exemption.md) | 2026-08-02 | accepted | okf-durable-references, okf-bundle-format |
+| [The artifact half is named, never re-derived](decisions/2026-08-02-the-artifact-half-is-named-never-re-derived.md) | 2026-08-02 | accepted | okf-next |
 | [The check reaches the recorded test change only, and the kit says so](decisions/2026-08-02-the-check-reaches-the-recorded-test-change-only.md) | 2026-08-02 | accepted | test-first-gate |
 | [The falsifier is recorded in the test-plan, not in test-cases](decisions/2026-08-02-the-falsifier-is-recorded-in-the-test-plan.md) | 2026-08-02 | accepted | test-first-gate |
 | [The kit records the evidence a change reports; it never reproduces it](decisions/2026-08-02-the-kit-records-reported-evidence-it-does-not-reproduce-it.md) | 2026-08-02 | accepted | okf-archive-gate, test-first-gate |
 | [The kit records test ordering; it does not verify it](decisions/2026-08-02-the-kit-records-test-ordering-it-does-not-verify-it.md) | 2026-08-02 | accepted | test-first-gate |
+| [A rule ships where it is needed, not where it can be dogfooded](decisions/2026-08-03-a-rule-ships-where-it-is-needed-not-where-it-can-be-dogfooded.md) | 2026-08-03 | accepted | test-first-gate |
+| [A rule the checker cannot see stays with the author](decisions/2026-08-03-a-rule-the-checker-cannot-see-stays-with-the-author.md) | 2026-08-03 | accepted | test-first-gate, okf-archive-gate |
 
 ## Needs Revision Ledger
 

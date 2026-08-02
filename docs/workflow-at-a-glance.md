@@ -32,45 +32,38 @@ them is a habit, not a rule** — so the knowledge leaks out at each hand-off.
 
 ```mermaid
 flowchart TD
-    CHAT["Discussion in chat / a ticket"]
-    W{"Does someone remember<br/>to write the entry?"}
-    OKF[(".okf/features/*.md<br/><i>if it exists at all</i>")]
-    SPEC["OpenSpec specs<br/><i>rule text pasted in</i>"]
-    IMPL["<b>Implementation</b>"]
-    TEST["Tests written after the code"]
+    CHAT["Chat / ticket"]
+    OKF[(".okf entry<br/><i>if it exists at all</i>")]
+    SPEC["OpenSpec specs"]
+    IMPL["Implementation"]
+    TEST(["Tests written after the code<br/>→ can no longer refute it"])
     ARC["Archive = move the folder"]
+    DRIFT(["One rule, two copies<br/>→ silent drift"])
+    STALE(["Entry left unverified<br/>→ nobody knows what is true"])
 
-    L1(["Knowledge dies with the session"])
-    L2(["Two copies of one rule<br/>→ silent drift"])
-    L3(["A test shaped by the code<br/>→ it can no longer refute it"])
-    L4(["Entry left unverified,<br/>nobody knows what is still true"])
-    L5(["Decisions buried in an<br/>archived design.md"])
-
-    CHAT --> W
-    W -- "usually: no" --> L1
-    W -- "sometimes: yes" --> OKF
+    CHAT -. "if someone remembers" .-> OKF
     CHAT --> SPEC
-    SPEC -- "copied, then edited<br/>on one side only" --> L2
     CHAT ==>|"the real source of truth"| IMPL
     SPEC --> IMPL
-    OKF -. "optional — nothing<br/>requires reading it" .-> IMPL
-    IMPL --> TEST --> L3
+    OKF -. "optional to read" .-> IMPL
+    OKF -- "the rule" --> DRIFT
+    SPEC -- "its copy" --> DRIFT
+    IMPL --> TEST
     IMPL --> ARC
-    ARC --> L4
-    ARC --> L5
-    OKF -. "nobody updates it<br/>on the way out" .-> ARC
+    ARC -. "nobody updates it<br/>on the way out" .-> OKF
+    ARC --> STALE
 
     classDef leak fill:#f6e2e2,stroke:#a33,color:#3a1414
     classDef okf fill:#f7ecd9,stroke:#9c6b1f,color:#3a2b0f
-    class L1,L2,L3,L4,L5 leak
+    class TEST,DRIFT,STALE leak
     class OKF okf
 ```
 
-The failure is not that people are careless. It is that the free-form version
-has **no step that fails** when a hand-off is skipped: the change still
-proposes, the code still ships, the folder still archives. Missing knowledge is
-invisible until months later, when nobody can say whether a rule in `.okf/` is
-still true.
+Read the line types: the **solid** path is what always happens, the **dotted**
+ones are what someone has to remember. The failure is not carelessness — it is
+that no step *fails* when a dotted arrow is skipped. The change still proposes,
+the code still ships, the folder still archives. The gap only surfaces months
+later, when nobody can say whether a rule in `.okf/` is still true.
 
 ### What the kit turns each leak into
 

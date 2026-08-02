@@ -1,5 +1,5 @@
 name: okf-gated-feature
-version: 3
+version: 5
 description: OpenSpec workflow with an OKF-linked knowledge gate and a test-first implementation gate
 artifacts:
   - id: okf-link
@@ -16,6 +16,16 @@ artifacts:
       `fix-auth-mfa` and `improve-login` are three changes to one capability:
       `user-auth`. Use the capability name that already exists under
       `openspec/specs/<capability>/`, or the one this change will introduce.
+
+      SCOPE FILTER - what belongs in an entry. An entry holds only knowledge that
+      outlives the change which introduced it. A field's validation message, a
+      form's layout, the shape of one endpoint's payload - these do not belong
+      here. Requirement wording belongs in the spec; structural choices belong
+      in the design; a one-change payload shape belongs in neither, because it
+      was never knowledge. The test is not whether it is true or
+      correct - everything written is true at the moment it is written. Ask:
+      would a second change to this capability still need it? If not, leave it
+      out.
 
       Steps:
 
@@ -80,7 +90,10 @@ artifacts:
       Read the OKF entries listed in okf-link.md FIRST. They are the primary
       knowledge source for this change, ahead of anything said in conversation.
       Where the proposal relies on a business rule, cite its id (`BR-3`) rather
-      than restating the rule in your own words.
+      than restating the rule in your own words. A question the entry already answers
+      is not asked of the user - cite the rule id and move on. The
+      entry's Assumptions and Open Questions are what generate a question: ask
+      those, and do not assume an answer the entry left open.
 
       Sections:
 
@@ -245,6 +258,40 @@ artifacts:
       Anything genuinely not applicable goes in the Not Applicable table with a
       specific reason and an approver - never an empty cell and never the bare
       words "not applicable".
+
+      The Negative And Boundary Cases table ships its Class column seeded, and
+      those seeds are the point of the table. Answer for each of the six:
+
+      - Absence - null, an empty string, whitespace, a missing field, no record
+      - Numeric edge - 0, 1, -1, the limit itself and one past it
+      - Duplication - the same submission twice, a repeated id, a replayed request
+      - Staleness - a cached or re-read value that changed underneath
+      - Authorisation - the action attempted by an actor who may not perform it
+      - Scope isolation - data reachable across a boundary it must not cross:
+        tenant, workspace, project, or in a single-actor system the user
+
+      A class this change genuinely does not touch is discharged with a stated
+      reason in the Not Applicable table, rather than deleting its row. The
+      distinction is the whole value of naming them: "this feature has no tenant
+      boundary" is a decision, and a deleted row is indistinguishable from nobody
+      having considered tenants. Add classes the domain has beyond these six.
+
+      `okf check` warns when this table has no rows at all while the specs carry
+      scenarios, and does nothing else here. Whether six classes were genuinely
+      considered is not observable from the file, so the checker never errors on
+      it and never counts classes - six rows written to satisfy a gate would be
+      worse than the silence it replaced.
+
+      A change with a user interface answers for all four render states -
+      loading, error, empty, populated - and for whether the interface reports
+      failure to the user rather than only to the console. Three of the four are
+      what an author testing their own feature never sees. A change with no
+      interface discharges the section in Not Applicable, as any other
+      inapplicable level is.
+
+      Where a scenario produces something a human can inspect - a screenshot, a
+      recording, a captured page - the test-plan's Artifacts column says where it
+      lands. Name the destination, never the tool that produced it.
 
       Cite the `BR-n` id in the Source column wherever a case exists because of a
       business rule. That citation is what makes the chain
@@ -452,7 +499,10 @@ artifacts:
       4. Review the entry's Domain Terms, Data Entities, Permissions And Access
          Control, and Workflows sections the same way. Correct staleness directly
          in `.okf/features/<capability>.md` - never in a copy, never in this
-         change directory.
+         change directory. Remove change-local detail that leaked in - a
+         validation message, a form's layout, a one-change payload shape - on
+         the same pass: if a second change would not still need it, it does not
+         belong.
 
       5. For each linked entry: set `verification_state` (`verified` or
          `needs-revision`, never left at `unverified`), set `verified_at`, fill

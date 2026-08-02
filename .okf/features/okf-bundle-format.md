@@ -4,19 +4,30 @@ title: okf-bundle-format
 description: The contract for what a conformant OKF bundle looks like in this kit - entry frontmatter, verification state, and the bundle-level reserved files.
 status: stable
 verification_state: verified
-verified_at: 2026-08-01
+verified_at: 2026-08-02
 verified:
-  - by: anthropic/claude-opus-5
-    at: 2026-08-01T00:00:00Z
+  - by: cursor/composer
+    at: 2026-08-02T00:00:00Z
 criticality: normal
 pending_changes: []
-code_paths: [lib/check.mjs, lib/index-gen.mjs, lib/frontmatter.mjs, .okf/profile.md]
+code_paths:
+  - lib/check.mjs
+  - lib/index-gen.mjs
+  - lib/frontmatter.mjs
+  - .okf/profile.md
+  - openspec/schemas/okf-gated-feature/schema.yaml
+  - .okf/templates/feature.md.tmpl
+  - AGENTS.md
+  - CLAUDE.md
 sources:
+  - id: review-2026-08-02-scope
+    resource: 'Comparison of okf-kit against a hand-written agent rulebook, 2026-08-02. That rulebook carried a "Smart OKF Backfill Filter" - backfill only global business rules, ADRs and critical pitfalls, and do NOT pollute knowledge with local feature-specific UI or form details. The schema says at length what to write into an entry and nowhere what to keep out of one.'
   - id: spec-okf-v0.2
     resource: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
   - id: grill-2026-08-01
     resource: 'Grill session 2026-08-01 deciding the verified/verification_state split, its semantics, and the limits of human sign-off: "Hãy đề xuất, mình muốn làm đơn giản trước. Quan trọng nhất vẫn là chất lượng của OKF và openspec"'
 linked_changes:
+  - add-okf-entry-scope-filter
   - okf-spec-conformance
 generated:
   by: anthropic/claude-opus-5
@@ -70,6 +81,10 @@ this kit without the kit giving up the gates that make its knowledge trustworthy
 | BR-9 | Actor identity MUST follow the spec convention: `<producer>/<version>` for agents and tools, `human:<id>` for people, `process:<id>` for automated processes. Trust tier derivation keys off the `human:` prefix, so an actor written outside the convention silently loses its tier. | spec-okf-v0.2 |
 | BR-10 | `status` MUST use the spec vocabulary (`draft` \| `stable` \| `deprecated`). A decision entry's ADR-style state belongs in its own field, because overloading `status` gives one key two meanings that consumers cannot tell apart. | spec-okf-v0.2 |
 | BR-11 | Where the kit extends the spec, it MUST do so with keys the spec does not define, and MUST record the extension in the profile document. Consumers are required to tolerate unknown keys, so extension is free; silent divergence on a defined key is not. | grill-2026-08-01 |
+| BR-14 | An entry MUST hold only knowledge that outlives the change which introduced it. A field's validation message, a form's layout, the shape of one endpoint's payload - these belong to the spec and the design that settled them. An entry that accumulates them stops being the thing you read first and becomes the thing nobody finishes reading. | review-2026-08-02-scope |
+| BR-15 | The test for whether something belongs is whether a second change to the same capability would still need it, not whether it is true. Everything written into an entry is true at the moment it is written; truth is what makes the wrong content hard to argue with, and durability is what separates it. | review-2026-08-02-scope |
+| BR-16 | A step that has read an entry MUST NOT ask the user what the entry already answers. Re-asking teaches that the knowledge base is decorative - if the answer is in the file and the question still gets asked, the file was not the source of truth - and it spends the user's attention on the one thing that was already paid for. | review-2026-08-02-scope |
+| BR-17 | Where an entry leaves something open, the question MUST be asked rather than assumed. Open Questions and Assumptions are the entry's own record of what it does not know, and they are the only part of it that should generate a question. | review-2026-08-02-scope |
 
 # Permissions And Access Control
 
@@ -144,4 +159,5 @@ this kit without the kit giving up the gates that make its knowledge trustworthy
 
 | Date | Change | Verified Status | Evidence / Notes |
 | --- | --- | --- | --- |
+| 2026-08-02 | add-okf-entry-scope-filter | verified | BR-14 schema.yaml:20-28 (filter + destinations), feature.md.tmpl:62-68, schema.yaml:468-471 (section review removal); BR-15 schema.yaml:25-28 (second-change test); BR-16 schema.yaml:93-94, AGENTS.md:45; BR-17 schema.yaml:95-96, AGENTS.md:46-47. Decision promoted: `.okf/decisions/2026-08-02-no-checker-for-meaning-judgements.md`. UT-501..UT-508, IT-501, IT-502. |
 | 2026-08-01 | okf-spec-conformance | verified | BR-1 lib/check.mjs:16,270,310; BR-2 enforced by the schema instruction, not by code - see Not Applicable in test-cases.md; BR-3 lib/check.mjs:327,343; BR-4 lib/check.mjs:363; BR-5 lib/check.mjs:354 (warn only); BR-6 .okf/profile.md "What this kit does not claim"; BR-7 lib/check.mjs:458; BR-8 lib/index-gen.mjs:8,11 and lib/check.mjs:498; BR-9 lib/check.mjs:25,233,378; BR-10 lib/check.mjs:17,428,435; BR-11 .okf/profile.md. BR-12 and BR-13 are unenforceable by construction and recorded as such. |

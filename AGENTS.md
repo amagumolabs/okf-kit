@@ -42,6 +42,10 @@ of them is enough. A `BR-n` is the most visible kind, not the only kind - a
 capability can carry permissions and terms long before any rule is settled, and
 reading the test as "no rule, so nothing to save" loses exactly those.
 
+A question an entry already answers is not asked - cite the rule id and move on.
+The entry's Assumptions and Open Questions are exactly what should generate a
+question.
+
 - When the conversation crystallizes around one concrete, nameable capability -
   not an open-ended idea - and that capability has domain knowledge, ask:
   "Save what we discussed to OKF as unverified?"
