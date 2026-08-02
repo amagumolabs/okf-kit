@@ -398,6 +398,161 @@ test('change: and quoted-text provenance are accepted', (root) => {
   assert.equal(find(report, /sources references/).length, 0, 'a quote and a change: ref are both valid provenance');
 });
 
+// ---------------------------------------------------------------------------
+// Durable references: a bundle outlives the changes that wrote it, so a
+// reference into openspec/changes/ is broken by construction. The frontmatter
+// half of this shipped earlier; these cover the body, which nothing read.
+// ---------------------------------------------------------------------------
+
+/** Append a paragraph to the fixture entry, after every table. */
+const withProse = (root, prose) => edit(root, '.okf/features/user-auth.md', (t) => `${t}\n${prose}\n`);
+/** Reference findings only, so unrelated fixture noise cannot pass a test. */
+const refErrors = (report) => find(report, /renamed at archive time|still a location/);
+
+test('a locator error names the durable change: form', (root) => {
+  withProse(root, 'See openspec/changes/add-mfa/design.md for the rationale.');
+  const [hit] = refErrors(check(root));
+  assert.ok(hit, 'the locator must be reported at all');
+  assert.match(hit.message, /use `change:/, 'a message that only forbids leaves the author guessing');
+});
+
+test('a locator in an entry body is caught', (root) => {
+  withProse(root, 'See openspec/changes/add-mfa/design.md for the rationale.');
+  assertError(check(root), /renamed at archive time/, 'prose dangles exactly like frontmatter does');
+});
+
+test('a locator inside a table cell is caught', (root) => {
+  withProse(root, '| Term | Meaning | Source |\n| --- | --- | --- |\n| Factor | see openspec/changes/add-mfa/spec.md | prd |');
+  assertError(check(root), /renamed at archive time/, 'a table cell is prose with pipes around it');
+});
+
+test('adding the body scan does not change the frontmatter finding', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('resource: docs/prd.md', 'resource: openspec/changes/add-mfa/design.md')
+  );
+  const hits = refErrors(check(root));
+  assert.equal(hits.length, 1, `one locator must produce one finding, got ${hits.length}`);
+  assert.match(hits[0].message, /^sources references /, 'the frontmatter wording is load-bearing for the existing test');
+});
+
+test('the bare openspec/changes prefix is prose', (root) => {
+  withProse(root, 'Provenance must never be a path under openspec/changes/ - cite the change id.');
+  assert.deepEqual(refErrors(check(root)), [], 'the rule has to be stateable in the bundle it governs');
+});
+
+test('the bare archive prefix is prose', (root) => {
+  withProse(root, 'Archiving moves the directory under openspec/changes/archive/ where nobody reads it.');
+  assert.deepEqual(refErrors(check(root)), [], 'describing the mechanism is not pointing at a change');
+});
+
+test('a placeholder change segment is prose', (root) => {
+  withProse(root, 'A change lives at openspec/changes/<change-id>/ while it is active.');
+  assert.deepEqual(refErrors(check(root)), [], 'a placeholder names the shape, not a change');
+});
+
+test('a concrete change directory is a locator without a file suffix', (root) => {
+  withProse(root, 'The work happened in openspec/changes/add-mfa/ last week.');
+  assertError(check(root), /renamed at archive time/, 'the directory is what gets renamed; a file suffix is not required');
+});
+
+test('a locator inside a fenced block is not reported', (root) => {
+  withProse(root, 'Never write this:\n\n```text\nopenspec/changes/add-mfa/design.md\n```');
+  assert.deepEqual(refErrors(check(root)), [], 'a rule that cannot be documented gets disabled instead of obeyed');
+});
+
+test('a fenced block does not excuse a locator in sources', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('resource: docs/prd.md', 'resource: openspec/changes/add-mfa/design.md')
+  );
+  withProse(root, '```text\nopenspec/changes/other/design.md\n```');
+  assertError(check(root), /renamed at archive time/, 'fencing marks an example, and frontmatter is never an example');
+});
+
+test('prose after a closed fence is still scanned', (root) => {
+  withProse(root, '```text\nexample\n```\n\nNow see openspec/changes/add-mfa/design.md for details.');
+  assertError(check(root), /renamed at archive time/, 'a fence must not swallow the rest of the file');
+});
+
+test('a locator in log.md is caught', (root) => {
+  write(root, '.okf/log.md', '# Log\n\nEvidence: openspec/changes/add-mfa/verification.md\n');
+  assertError(check(root), /renamed at archive time/, 'log.md is generated from evidence somebody typed by hand');
+});
+
+test('index.md without a type is still exempt from the concept-document rule', (root) => {
+  const report = check(root);
+  assert.equal(
+    find(report, /is a concept document and needs/).filter((f) => /index\.md/.test(f.file)).length,
+    0,
+    'scanning reserved files for references must not drag them into the type requirement'
+  );
+});
+
+test('an unresolvable change id is not reported', (root) => {
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('resource: change:add-mfa', 'resource: change:no-such-change-anywhere')
+  );
+  const report = check(root);
+  assert.deepEqual(refErrors(report), [], 'shape is the only property this check establishes');
+  assert.equal(find(report, /no-such-change/, 'warn').length, 0, 'and it must not hint at one it cannot prove');
+});
+
+test('a newly added bundle file is scanned on the same terms', (root) => {
+  write(
+    root,
+    '.okf/notes/scratch.md',
+    '---\ntype: Documentation\ntitle: scratch\ndescription: notes\n---\n\nSee openspec/changes/add-mfa/design.md.\n'
+  );
+  assertError(check(root), /renamed at archive time/, 'a rule that only protects the files it shipped with protects nothing');
+});
+
+test('a clean run makes no claim about reference resolution', (root) => {
+  const report = check(root);
+  assert.equal(
+    report.findings.filter((f) => /references (resolve|validated|are valid)/i.test(f.message)).length,
+    0,
+    'a durable reference is still not a correct one'
+  );
+});
+
+test('a path into an archived change is caught', (root) => {
+  withProse(root, 'Superseded by openspec/changes/archive/2026-01-01-add-mfa/design.md.');
+  const [hit] = refErrors(check(root));
+  assert.ok(hit, 'an archived path is a location, and the id is right there in the directory name');
+  assert.match(hit.message, /change:add-mfa/, 'the derived id makes the fix mechanical');
+});
+
+test('an archived path that exists on disk is still caught', (root) => {
+  write(root, 'openspec/changes/archive/2026-01-01-add-mfa/design.md', '# Design\n');
+  withProse(root, 'Superseded by openspec/changes/archive/2026-01-01-add-mfa/design.md.');
+  assertError(check(root), /still a location/, 'resolving today is an accident of the archive step running once');
+});
+
+test('a locator inside an HTML comment is not reported', (root) => {
+  withProse(root, '<!-- TODO: openspec/changes/add-mfa/design.md -->');
+  assert.deepEqual(refErrors(check(root)), [], 'hygiene already reads a comment as not asserted');
+});
+
+test('openspec/changes with no trailing slash is prose', (root) => {
+  withProse(root, 'Change artifacts live under openspec/changes in this repo.');
+  assert.deepEqual(refErrors(check(root)), [], 'that names the tree, not a change');
+});
+
+test('a file with two locators is reported', (root) => {
+  withProse(root, 'See openspec/changes/add-mfa/design.md and openspec/changes/add-mfa/tasks.md.');
+  assert.ok(refErrors(check(root)).length >= 1, 'one finding or two is an implementation choice; silence is not');
+});
+
+test('a bundle with no markdown files does not crash', (root) => {
+  fs.rmSync(path.join(root, '.okf'), { recursive: true, force: true });
+  fs.mkdirSync(path.join(root, '.okf'), { recursive: true });
+  assert.deepEqual(refErrors(check(root)), [], 'an empty bundle has nothing to dangle');
+});
+
+test('a .tmpl file carrying a locator is not scanned', (root) => {
+  write(root, '.okf/templates/feature.md.tmpl', 'resource: openspec/changes/add-mfa/design.md\n');
+  assert.deepEqual(refErrors(check(root)), [], 'a template is not bundle knowledge');
+});
+
 test('an escaped pipe inside a table cell does not split the row', (root) => {
   // Found by dogfooding: evidence cells legitimately contain regexes and shell
   // pipelines, and shredding them produced findings about columns that never
@@ -1746,6 +1901,22 @@ projectTest("the profile document names the kit's divergences", (root) => {
   }
   assert.match(text, /v0\.2/, 'the targeted specification version must be stated');
   assert.match(text, /not proven genuine|does not claim/i, 'the limit of the human-review check must be stated');
+});
+
+/**
+ * The same dogfooding the uppercase-path guard above does, for the same reason:
+ * the rule is only worth shipping if the bundle that defines it obeys it. A
+ * failure here means the shape classifier is wrong, not that the bundle is.
+ */
+projectTest('no bundle file in this repo carries a locator', () => {
+  const report = check(KIT);
+  const hits = report.findings.filter((f) => /renamed at archive time|still a location/.test(f.message));
+
+  assert.deepEqual(
+    hits.map((f) => `${f.file}: ${f.message}`),
+    [],
+    'every openspec/changes mention in this bundle must be mechanism prose'
+  );
 });
 
 auditTest('the bundle index is committed at a lowercase path', ({ root, git, commit }) => {

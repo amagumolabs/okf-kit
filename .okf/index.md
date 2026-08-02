@@ -22,6 +22,7 @@ regenerations - that column is the only hand-written content in this file.
 | [okf-archive-gate](features/okf-archive-gate.md) | verified | 2026-07-30 | - | normal | stable |
 | [okf-audit](features/okf-audit.md) | verified | 2026-08-01 | - | normal | stable |
 | [okf-bundle-format](features/okf-bundle-format.md) | verified | 2026-08-01 | - | normal | stable |
+| [okf-durable-references](features/okf-durable-references.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-migrate](features/okf-migrate.md) | verified | 2026-08-01 | - | normal | stable |
 
 ## Decisions
@@ -37,6 +38,9 @@ regenerations - that column is the only hand-written content in this file.
 | [Migration is a separate command, and upgrade keeps its payload boundary](decisions/2026-08-01-migration-is-its-own-command.md) | 2026-08-01 | accepted | okf-migrate |
 | [stale_after is not adopted; absence of an attestation already encodes distrust](decisions/2026-08-01-stale-after-is-not-adopted.md) | 2026-08-01 | accepted | okf-bundle-format |
 | [Workflow state lives in verification_state, never in the specification's verified key](decisions/2026-08-01-workflow-state-leaves-the-specification-key.md) | 2026-08-01 | accepted | okf-bundle-format |
+| [A bundle content rule discriminates by shape, never by a list of excused files](decisions/2026-08-02-bundle-content-rules-discriminate-by-shape.md) | 2026-08-02 | accepted | okf-durable-references |
+| [A fenced code block is how a document exempts itself from a content rule](decisions/2026-08-02-fencing-is-the-sanctioned-escape-hatch.md) | 2026-08-02 | accepted | okf-durable-references |
+| [Exemption from a frontmatter requirement is not exemption from a content rule](decisions/2026-08-02-structural-exemption-is-not-content-exemption.md) | 2026-08-02 | accepted | okf-durable-references, okf-bundle-format |
 
 ## Needs Revision Ledger
 

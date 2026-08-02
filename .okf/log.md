@@ -8,6 +8,10 @@ Newest date first, as the specification's log format requires.
 -->
 
 
+## 2026-08-02
+
+**Update** `okf-durable-references` verified in `guard-durable-references` - BR-1 lib/check.mjs:209 (frontmatter) and 566-569 (body), tests at test/run.mjs:384,412; BR-2 lib/check.mjs:545-574, tests at 419,424,476,499; BR-3 lib/check.mjs:156-163, tests at 438,443,448,453; BR-4 lib/check.mjs:185 via stripFences, tests at 458,463,471; BR-5 no filename list exists in checkDurableReferences - only the `.md` extension filter at lib/check.mjs:556 - tests at 499 and projectTest 1911; BR-6 no resolution attempted anywhere, test at 490; BR-7 lib/check.mjs:566-568 and changeIdFromLocator:169-174, tests at 517,524. Two implementation defects were caught by the pre-written tests and fixed in code: double reporting of frontmatter locators, and trailing punctuation absorbed into the matched path
+
 ## 2026-08-01
 
 **Update** `okf-audit` verified in `okf-spec-conformance` - BR-4 and BR-6 re-checked after the field rename: lib/audit.mjs:142-143 now selects on `verification_state`. BR-10 traced to the same lines - the selection never reads `verified[]`, so a migrated entry is still audited. BR-1, BR-2, BR-3, BR-5, BR-7, BR-8, BR-9 untouched by this change and not re-traced.
