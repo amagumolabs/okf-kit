@@ -250,6 +250,12 @@ artifacts:
       public contracts and service boundaries over private internals - a test
       bound to internals has to be rewritten by the very change it was meant to
       guard.
+
+      Assertions run on real behavior, never on mock call counts. "The collaborator
+      was called three times" is falsified by editing the mock, not by any change
+      to the production code, so it survives every real defect it was written to
+      catch. The same test states what the caller observed instead, and then it
+      has a falsifier to name in test-plan.md.
     requires:
       - specs
   - id: test-plan
@@ -284,7 +290,25 @@ artifacts:
         `throw new Error('not implemented')`. A stub MUST NOT contain logic - if
         behavior leaks into a stub, test-first is already lost at step one.
         Initial Status records the actual assertion failure
-        (`failing: expected 403, got 200`), not the bare word "failing".
+        (`failing: expected 403, got 200`), not the bare word "failing". A row
+        that comes out green instead answers in the same shape -
+        `passing: the rule already held, this test locks it against regression`.
+        Green before the implementation existed is either that or a test that
+        asserts nothing this change introduces, and the bare word does not say
+        which, so it is read as the second.
+
+        Each row also names its falsifier: the production change that would make
+        that test fail, in the Falsified By column. Answer with a change to the
+        code, not with a restatement of the test. A test whose expected value is
+        computed the way the code computes it has no answer here - it passes by
+        construction and can never report a disagreement, which is the one thing
+        a test written first exists to do. Work the answer out before writing the
+        test; a row with no answer is redesigned rather than filled in.
+
+        All three records - the assertion message, the reason behind a green
+        start, the falsifier - are warnings while the change is in flight and
+        errors under `okf check --archive`. A plan under construction is told,
+        not blocked; nothing archives without them.
 
       - **Integration and E2E tests** are authored before implementation too, and
         may start as `skeleton` when the fixtures, server, seeded database, or

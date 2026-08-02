@@ -207,9 +207,9 @@ const TEST_PLAN = `# Test Plan
 
 # Pre-Implementation Unit Tests
 
-| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| UT-001 | BR-1 | src/auth/mfa.test.ts | refuses admin without mfa | failing: expected 403, got 200 | - |
+| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Falsified By | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| UT-001 | BR-1 | src/auth/mfa.test.ts | refuses admin without mfa | failing: expected 403, got 200 | dropping the second-factor check from the session builder | - |
 
 # E2E Tests
 
@@ -886,6 +886,184 @@ test('NEG-102 a resolving citation needs no declared ground', (root) => {
 });
 
 // ---------------------------------------------------------------------------
+// A planned test answers for whether it could ever have failed.
+// Rules: .okf/features/test-first-gate.md (BR-3, BR-5, BR-11, BR-12).
+// ---------------------------------------------------------------------------
+
+const UNIT_COLUMNS = [
+  'Test Case ID', 'Rule (BR-n)', 'Test File', 'Test Name', 'Initial Status', 'Falsified By', 'Notes',
+];
+
+/** One clean Pre-Implementation Unit Tests row, with the named cells overridden. */
+const unitRow = ({ id = 'UT-001', initial = 'failing: expected 403, got 200', falsifier = 'dropping the second-factor check from the session builder' } = {}) =>
+  [id, 'BR-1', 'src/auth/mfa.test.ts', `refuses ${id} without mfa`, initial, falsifier, '-'];
+
+/** Replace the fixture plan's unit-test table, header included. */
+function setUnitTests(root, rows, { columns = UNIT_COLUMNS } = {}) {
+  const table = [
+    `| ${columns.join(' | ')} |`,
+    `| ${columns.map(() => '---').join(' | ')} |`,
+    ...rows.map((r) => `| ${r.slice(0, columns.length).join(' | ')} |`),
+  ].join('\n');
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t.replace(
+      /# Pre-Implementation Unit Tests\n\n[\s\S]*?(?=\n# )/,
+      `# Pre-Implementation Unit Tests\n\n${table}\n`
+    )
+  );
+}
+
+/** The same columns minus one, for the tables that must report its absence. */
+const without = (name) => UNIT_COLUMNS.filter((c) => c !== name);
+
+const UNEXPLAINED_GREEN = /green before its implementation|passing/;
+const NO_FALSIFIER = /falsif/i;
+
+test('UT-201 a bare green initial status is a warning', (root) => {
+  setUnitTests(root, [unitRow({ initial: 'passing' })]);
+  assertWarn(
+    check(root),
+    UNEXPLAINED_GREEN,
+    'a test green before its implementation existed must say which of the two things it is'
+  );
+});
+
+test('UT-202 a green initial status with its reason is clean', (root) => {
+  setUnitTests(root, [unitRow({ initial: 'passing: BR-1 already held, this locks it against regression' })]);
+  assert.equal(
+    find(check(root), UNEXPLAINED_GREEN, 'warn').length,
+    0,
+    'a stated reason is a complete answer - the check does not judge whether it is apt'
+  );
+});
+
+test('UT-203 a reason too short is not a reason', (root) => {
+  setUnitTests(root, [unitRow({ initial: 'passing: ok' })]);
+  assertWarn(check(root), UNEXPLAINED_GREEN, 'two characters distinguish nothing between the two cases');
+});
+
+test('UT-204 a green live status is untouched', (root) => {
+  const report = check(root);
+  assert.equal(
+    find(report, UNEXPLAINED_GREEN, 'warn').length,
+    0,
+    'the E2E row ends `passing` in its live column - a test that ends green is the intended outcome'
+  );
+});
+
+test('UT-205 a unit row with no falsifier is a warning', (root) => {
+  setUnitTests(root, [unitRow({ falsifier: '' })]);
+  assertWarn(check(root), NO_FALSIFIER, 'a test nobody can say would fail has no claim to make');
+});
+
+test('UT-206 a filled falsifier is clean whether or not it is apt', (root) => {
+  setUnitTests(root, [unitRow({ falsifier: 'renaming a variable somewhere unrelated' })]);
+  assert.equal(
+    find(check(root), NO_FALSIFIER, 'warn').length,
+    0,
+    'presence is mechanical, aptness is a review question - the check must not pretend to answer it'
+  );
+});
+
+test('UT-207 a missing falsifier column is one finding for the table', (root) => {
+  setUnitTests(
+    root,
+    [unitRow({ id: 'UT-001' }), unitRow({ id: 'UT-002' }), unitRow({ id: 'UT-003' })],
+    { columns: without('Falsified By') }
+  );
+  assert.equal(
+    find(check(root), NO_FALSIFIER, 'warn').length,
+    1,
+    'a template that predates the column is one problem, not one per row'
+  );
+});
+
+test('UT-208 integration and e2e tables need no falsifier', (root) => {
+  const report = check(root);
+  assert.equal(
+    find(report, NO_FALSIFIER, 'warn').length,
+    0,
+    'the E2E table has no falsifier column and must not be asked for one - its rows start as skeletons'
+  );
+});
+
+test('UT-209 a bare red state stays a warning in flight', (root) => {
+  setUnitTests(root, [unitRow({ initial: 'failing' })]);
+  assertWarn(
+    check(root),
+    /assertion message/,
+    'a plan under construction is told, not blocked'
+  );
+});
+
+test('UT-210 the known gaps owner is found by header name', (root) => {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t.replace('| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | skeleton | passing | - |',
+      '| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | skeleton | skeleton | - |')
+      .replace(
+        '| Test Case ID | Status Left At | Reason | Owner | Follow-Up |\n| --- | --- | --- | --- | --- |',
+        '| Owner | Test Case ID | Status Left At | Reason | Follow-Up |\n| --- | --- | --- | --- | --- |\n' +
+          '| danh | API-E2E-001 | skeleton | the browser harness lands next sprint | tracked next change |'
+      )
+  );
+  assert.equal(
+    find(check(root, { archiveChange: 'add-mfa' }), /no Known Gaps row with an owner/).length,
+    0,
+    'the owner is named; a positional read looks for the id in the owner cell and misses it'
+  );
+});
+
+test('UT-211 a surviving skeleton with no owner is still an error', (root) => {
+  edit(root, 'openspec/changes/add-mfa/test-plan.md', (t) =>
+    t.replace('| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | skeleton | passing | - |',
+      '| API-E2E-001 | e2e/signin.spec.ts | admin sign-in | skeleton | skeleton | - |')
+      .replace(
+        '| Test Case ID | Status Left At | Reason | Owner | Follow-Up |\n| --- | --- | --- | --- | --- |',
+        '| Test Case ID | Status Left At | Reason | Owner | Follow-Up |\n| --- | --- | --- | --- | --- |\n' +
+          '| API-E2E-001 | skeleton | the browser harness lands next sprint |  | - |'
+      )
+  );
+  assertError(
+    check(root, { archiveChange: 'add-mfa' }),
+    /no Known Gaps row with an owner/,
+    'a row listed without an owner is the case the rule exists for'
+  );
+});
+
+test('NEG-201 a bare green initial status is an error at archive', (root) => {
+  setUnitTests(root, [unitRow({ initial: 'passing' })]);
+  assertError(
+    check(root, { archiveChange: 'add-mfa' }),
+    UNEXPLAINED_GREEN,
+    'archive is the last moment the kit gets to insist'
+  );
+});
+
+test('NEG-202 an empty falsifier is an error at archive', (root) => {
+  setUnitTests(root, [unitRow({ falsifier: '' })]);
+  assertError(check(root, { archiveChange: 'add-mfa' }), NO_FALSIFIER, 'same escalation, same boundary');
+});
+
+test('NEG-203 a bare red state is an error at archive', (root) => {
+  setUnitTests(root, [unitRow({ initial: 'failing' })]);
+  assertError(
+    check(root, { archiveChange: 'add-mfa' }),
+    /assertion message/,
+    'BR-3 states the red state as a MUST, and a MUST that only ever warns can be archived unmet'
+  );
+});
+
+test('NEG-204 a blank row triggers neither new check', (root) => {
+  setUnitTests(root, [unitRow(), ['', '', '', '', '', '', '']]);
+  const report = check(root);
+  assert.equal(
+    find(report, UNEXPLAINED_GREEN, 'warn').length + find(report, NO_FALSIFIER, 'warn').length,
+    0,
+    'an untouched template row is not a claim about anything'
+  );
+});
+
+// ---------------------------------------------------------------------------
 // The shipped schema payload, asserted against itself. These are declared
 // before the implementation they cover, and promoted once it lands.
 // Rules: .okf/features/test-first-gate.md (BR-4, BR-6, BR-7).
@@ -983,9 +1161,10 @@ test('IT-005 a plan filled from the new template checks clean', (root) => {
     .replace('- API E2E:', '- API E2E: the sign-in journey over HTTP')
     .replace('- Browser E2E:', '- Browser E2E: not applicable, this change adds no UI')
     .replace(
-      '| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Notes |\n| --- | --- | --- | --- | --- | --- |',
-      '| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Notes |\n| --- | --- | --- | --- | --- | --- |\n' +
-        '| UT-001 | BR-1 | src/auth/mfa.test.ts | refuses admin without mfa | failing: expected 403, got 200 | - |'
+      '| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Falsified By | Notes |\n| --- | --- | --- | --- | --- | --- | --- |',
+      '| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Falsified By | Notes |\n| --- | --- | --- | --- | --- | --- | --- |\n' +
+        '| UT-001 | BR-1 | src/auth/mfa.test.ts | refuses admin without mfa | failing: expected 403, got 200 | ' +
+        'dropping the second-factor check from the session builder | - |'
     )
     .replace(
       '| Test Case ID | Test File | Test Name | Initial Status | Status | Notes |\n| --- | --- | --- | --- | --- | --- |',
@@ -1038,6 +1217,56 @@ test('IT-103 the Test Changes table shows both grounds', () => {
   assert.ok(
     header.some((c) => /rule.*spec/i.test(c)),
     'the citation column must stay - a resolving citation is the other admissible answer'
+  );
+});
+
+test('IT-201 the template names the inadmissible grounds', () => {
+  const rules = /# Test Change Rules([\s\S]*?)\n# /.exec(shipped('templates/test-plan.md'));
+  assert.ok(rules, 'the template must still have a Test Change Rules section');
+
+  for (const [what, re] of [
+    ['manual testing', /manually/i],
+    ['adding the test afterwards', /afterwards/i],
+    ['time already spent', /time already spent/i],
+    ['this case being different', /different from the ones/i],
+  ]) {
+    assert.match(rules[1], re, `an agent looking for a way out must find "${what}" already named`);
+  }
+});
+
+test('IT-202 the template carries the falsifier column', () => {
+  const header = tableHeader(shipped('templates/test-plan.md'), 'Pre-Implementation Unit Tests');
+  assert.ok(
+    header.includes('Falsified By'),
+    'what would make the test fail must be a column, not something a reviewer infers'
+  );
+});
+
+test('IT-203 the test-plan instruction asks for what the template shows', () => {
+  const schema = shipped('schema.yaml');
+  const instruction = /- id: test-plan([\s\S]*?)\n  - id: /.exec(schema);
+  assert.ok(instruction, 'the schema must still carry a test-plan artifact instruction');
+
+  assert.match(instruction[1], /Falsified By/, 'the instruction must name the column the template ships');
+  assert.match(
+    instruction[1],
+    /passing: /,
+    'the instruction must show the shape a green initial status answers in'
+  );
+  assert.match(
+    instruction[1],
+    /errors under `okf check --archive`|error at archive/i,
+    'an agent must learn the escalation from the instruction, not from being blocked by it'
+  );
+});
+
+test('IT-204 mock call counts are named as a non-answer', () => {
+  const instruction = /- id: test-cases([\s\S]*?)\n  - id: /.exec(shipped('schema.yaml'));
+  assert.ok(instruction, 'the schema must still carry a test-cases artifact instruction');
+  assert.match(
+    instruction[1],
+    /mock call counts/i,
+    'the one assertion that no production change can falsify has to be named'
   );
 });
 

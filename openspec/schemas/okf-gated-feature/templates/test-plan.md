@@ -61,11 +61,22 @@ Unit tests for business rules. Each must reach `failing` before its
 implementation task starts, and Initial Status must record the actual assertion
 failure (e.g. `failing: expected 403, got 200`), not the bare word "failing".
 
+A row that starts `passing` says why in the same shape - `passing: the rule
+already held, this test locks it against regression`. Green before the
+implementation existed is either that, or a test asserting nothing this change
+introduces, and the bare word does not say which.
+
+Falsified By names the production change that would make this test fail. Answer
+with a change to the code - "dropping the second-factor check from the session
+builder" - not with a restatement of the test. A test whose expected value is
+computed the way the code computes it has no answer here, and that is the point:
+it passes by construction and can never report a disagreement.
+
 Quote the OKF rule id so the trail BR-n -> spec -> test -> code stays intact.
 -->
 
-| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Notes |
-| --- | --- | --- | --- | --- | --- |
+| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Falsified By | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
 
 # Integration Tests
 
@@ -127,6 +138,14 @@ its tests last produces too.
 - When implementation reveals that a business rule must be different, stop:
   amend `.okf/features/<capability>.md` and the spec first, record it below, then
   change the test and the code. Never the other way round.
+- These are not grounds, and naming them here is the point - the two admissible
+  grounds are a closed list, and every reason below sounds reasonable at the
+  moment it is needed:
+  - having run the behaviour manually and seen it work
+  - intending to fix the test afterwards
+  - the time already spent on the implementation
+  - this case being different from the ones the rule was written for
+  - the test being "too strict" about something the code does differently
 
 # Test Changes After Implementation Started
 

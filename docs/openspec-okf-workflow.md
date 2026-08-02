@@ -41,11 +41,14 @@ developer at a terminal, and CI:
 | `config.yaml` rule containing an unquoted `: ` (YAML reads it as a mapping and the CLI silently drops every rule for that artifact) | error |
 | Missing `okf-kit` marker block, or `CLAUDE.md` and `AGENTS.md` blocks that differ from each other | error |
 | Project running an older kit version than the one installed | warning |
-| `verified` with empty `code_paths`; `failing` with no assertion message; template comment left in an entry | warning |
+| `verified` with empty `code_paths`; template comment left in an entry | warning |
+| `failing` with no assertion message; a unit row `passing` before implementation with no reason; a unit row or table with no falsifier | warning, error at archive |
 
 `okf check --archive <change-id>` adds the pre-archive set: the verification pass
 must be recorded, `pending_changes` cleared, no entry left `unverified`, and no
-`skeleton` test archived without an owner in Known Gaps.
+`skeleton` test archived without an owner in Known Gaps. It also hardens the three
+records in the last row above from warnings into errors — a plan under
+construction is told, not blocked, and nothing archives without them.
 
 The validator has its own fixture tests (`node test/run.mjs`), because a check
 that silently stops firing is worse than no check.
@@ -244,6 +247,17 @@ rewrite `Initial Status` to match the outcome: it is the only evidence the plan
 carries that the tests predate the code, and a table where both columns agree
 everywhere is exactly what a test-last change produces. `okf check` warns when it
 is left empty.
+
+Ordering is necessary and not sufficient: a test can be written first, recorded
+honestly, and still be incapable of failing. So the unit table asks each row for
+two more things. A row whose `Initial Status` is `passing` says why in the same
+shape the red state uses — green before the implementation existed is either a
+rule that already held and is now locked, or a test asserting nothing the change
+introduces, and the bare word does not say which. And every row names its
+falsifier: the production change that would make that test fail. A test whose
+expected value is computed the way the code computes it has no answer there,
+because it passes by construction. Both are checked for presence and never for
+aptness — the same division the gate draws everywhere else.
 
 Through implementation the tests are fixed and the code moves. When the two
 disagree the default is that the code is wrong: that disagreement is the entire

@@ -43,9 +43,11 @@ regenerations - that column is the only hand-written content in this file.
 | [A bundle content rule discriminates by shape, never by a list of excused files](decisions/2026-08-02-bundle-content-rules-discriminate-by-shape.md) | 2026-08-02 | accepted | okf-durable-references |
 | [Every test file is created before implementation, in a task group of its own](decisions/2026-08-02-every-test-file-precedes-the-implementation.md) | 2026-08-02 | accepted | test-first-gate |
 | [A fenced code block is how a document exempts itself from a content rule](decisions/2026-08-02-fencing-is-the-sanctioned-escape-hatch.md) | 2026-08-02 | accepted | okf-durable-references |
+| [Required records harden at the archive boundary](decisions/2026-08-02-required-records-harden-at-the-archive-boundary.md) | 2026-08-02 | accepted | test-first-gate |
 | [A test-plan table's live status is Status; Initial Status is history](decisions/2026-08-02-status-is-live-and-initial-status-is-history.md) | 2026-08-02 | accepted | test-first-gate, okf-archive-gate |
 | [Exemption from a frontmatter requirement is not exemption from a content rule](decisions/2026-08-02-structural-exemption-is-not-content-exemption.md) | 2026-08-02 | accepted | okf-durable-references, okf-bundle-format |
 | [The check reaches the recorded test change only, and the kit says so](decisions/2026-08-02-the-check-reaches-the-recorded-test-change-only.md) | 2026-08-02 | accepted | test-first-gate |
+| [The falsifier is recorded in the test-plan, not in test-cases](decisions/2026-08-02-the-falsifier-is-recorded-in-the-test-plan.md) | 2026-08-02 | accepted | test-first-gate |
 | [The kit records test ordering; it does not verify it](decisions/2026-08-02-the-kit-records-test-ordering-it-does-not-verify-it.md) | 2026-08-02 | accepted | test-first-gate |
 
 ## Needs Revision Ledger

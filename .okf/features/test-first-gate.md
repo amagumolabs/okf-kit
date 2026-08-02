@@ -1,18 +1,19 @@
 ---
 type: Feature Knowledge
 title: test-first-gate
-description: The rule set that decides when each level of test must exist relative to the implementation it guards, and how a test-plan proves the order was honoured.
+description: The rule set that decides when each level of test must exist relative to the implementation it guards, whether that test was ever capable of failing, and how a test-plan proves both.
 status: stable
 verification_state: verified
 verified:
   - by: anthropic/claude-opus-5
-    at: 2026-08-02T12:00:00Z
+    at: 2026-08-02T18:00:00Z
 verified_at: 2026-08-02
 criticality: normal
 pending_changes: []
 code_paths:
   - lib/check.mjs
   - lib/markdown.mjs
+  - docs/openspec-okf-workflow.md
   - openspec/schemas/okf-gated-feature/schema.yaml
   - openspec/schemas/okf-gated-feature/templates/tasks.md
   - openspec/schemas/okf-gated-feature/templates/test-plan.md
@@ -25,9 +26,16 @@ sources:
     resource: change:skeleton-tests-before-implementation
   - id: review-2026-08-02-tdd-direction
     resource: 'Review conversation 2026-08-02: "step implement phải follow theo unit test/integration/e2e thay vì cập nhật unit test/integration/e2e follow theo code. Vì đó là điểm mạnh của TDD"'
+  - id: review-2026-08-02-tdd-skills
+    resource: 'Review conversation 2026-08-02, auditing this gate against two external TDD skills: "hãy check lại codebase và giúp mình kiểm tra lại một lần nữa hiện tại chúng ta đã có những gì và cần thêm những gì từ 2 skill TDD ở trên"'
+  - id: skill-obra-tdd
+    resource: https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md
+  - id: skill-mattpocock-tdd
+    resource: https://github.com/mattpocock/skills/blob/main/skills/engineering/tdd/SKILL.md
 linked_changes:
   - skeleton-tests-before-implementation
   - enforce-test-change-discipline
+  - require-tests-that-can-fail
 generated:
   by: anthropic/claude-opus-5
   at: 2026-08-02T00:00:00Z
@@ -41,6 +49,13 @@ before the code it guards can still refute that code, and a test authored after
 it can only describe it. Everything else in the gate — the four-word status
 vocabulary, contract stubs, the Known Gaps ledger — exists to make that ordering
 observable to someone reading the change months later.
+
+Ordering alone is not sufficient, only necessary. A test can be written first,
+recorded honestly, and still be incapable of failing — because it asserts
+something that already held, or because it recomputes the expected value the way
+the code computes it. Such a test satisfies every ordering rule and refutes
+nothing, so the gate also asks each pre-implementation unit test to say what
+would break it.
 
 The gate is expressed in two places that must agree: the `tasks.md` group order,
 which is what an agent actually executes, and the `test-plan.md` tables, which
@@ -61,6 +76,8 @@ of the two.
 | Red state | A test that is executable and fails on its assertion rather than on a compile or import error | workflow-doc |
 | Promotion | Replacing a skeleton's pending declaration with a real body, so an already-designed test becomes executable | review-2026-08-02 |
 | Initial status | A test's status as of the moment implementation started, recorded separately from its current status | review-2026-08-02 |
+| Falsifier | The production change that would make a given test fail, named before the test is written. A test with no answer has no claim | review-2026-08-02-tdd-skills |
+| Tautological test | A test whose expected value is derived the way the code derives it, so it passes by construction and can never disagree with the implementation | skill-mattpocock-tdd |
 
 # Actors And Roles
 
@@ -68,7 +85,7 @@ of the two.
 | --- | --- | --- |
 | Agent implementing a change | Executes the task groups in order and fills the test-plan tables | Also writes the implementation, so it is the actor the ordering rules exist to constrain — it has every incentive to write the test after the code and call it planned |
 | Reviewer | Reads test-plan.md to judge whether the tests could have refuted the code | Cannot re-run history; can only read what the plan recorded at the time |
-| `okf check` | Enforces the mechanical half: status vocabulary, and no skeleton archived without an owner | Cannot judge ordering it was never shown evidence of |
+| `okf check` | Enforces the mechanical half: status vocabulary, no skeleton archived without an owner, and that every pre-implementation unit test row carries a self-explaining initial status and a named falsifier | Checks that the answers exist and are shaped right, never that they are apt. Cannot judge ordering it was never shown evidence of |
 
 # Business Rules
 
@@ -84,6 +101,8 @@ of the two.
 | BR-8 | When the implementation and a pre-written test disagree, the implementation changes. A pre-written test MAY be changed on exactly two grounds: the OKF entry or spec it encodes changed first, or the test has a mechanical defect (wrong fixture, typo, bad assertion syntax). "The code turned out to work differently" is not a ground — it is the disagreement the test exists to report, and editing the test to end it discards the only finding the test ever produced. | review-2026-08-02-tdd-direction |
 | BR-9 | Every change to a pre-written test after implementation started MUST be recorded with the ground it stands on, and the record MUST name it: the `BR-n` or spec that changed, or the specific mechanical defect. A test change with no stated ground is indistinguishable from a test fitted to the code, so an unrecorded one is treated as the latter. | review-2026-08-02-tdd-direction |
 | BR-10 | When implementation reveals that a business rule must be different, the order of repair is fixed: amend the OKF entry, then the spec that cites it, then record the change, then the test, then the code. Reversing any step lets the code define the domain, which is the failure the whole knowledge base exists to prevent. | review-2026-08-02-tdd-direction |
+| BR-11 | A pre-implementation unit test whose initial status is `passing` MUST say why, in the same `status: reason` shape the plan already uses for `failing`. Green before its implementation existed means one of two things — the rule already held and this test locks it, or the test asserts nothing the change introduces — and the bare word cannot tell them apart, so it reads as the second. | skill-obra-tdd |
+| BR-12 | Every pre-implementation unit test MUST name the production change that would make it fail. A test that recomputes its expected value the way the code computes it passes by construction and can never report a disagreement; naming the falsifier is what distinguishes a test that makes a claim from one that restates the implementation. The record is checked for presence, never for aptness. | review-2026-08-02-tdd-skills |
 
 # Workflows
 
@@ -91,22 +110,26 @@ of the two.
 
 1. Declare the contracts the planned unit tests need — types, signatures, routes
    that return 501 — with bodies that only throw (BR-3).
-2. Write the business-rule unit tests against those stubs, run them, and record
-   the actual assertion failure as each one's initial status (BR-3, BR-6).
-3. Author the integration and E2E test files as skeletons, declared with the
+2. For each planned unit test, name the production change that would make it
+   fail before writing it (BR-12). A test with no answer here is redesigned, not
+   written.
+3. Write the business-rule unit tests against those stubs, run them, and record
+   the actual assertion failure as each one's initial status (BR-3, BR-6). A
+   test that comes out green instead says why in the same cell (BR-11).
+4. Author the integration and E2E test files as skeletons, declared with the
    runner's pending mechanism, and record `skeleton` as their initial status
    (BR-4, BR-6).
-4. Implement until the unit tests go green.
-5. Promote the skeletons to executable specs and make them pass (BR-4).
-6. Before archive, give every row still at `skeleton` or `planned` a reason and
+5. Implement until the unit tests go green.
+6. Promote the skeletons to executable specs and make them pass (BR-4).
+7. Before archive, give every row still at `skeleton` or `planned` a reason and
    an owner in Known Gaps (BR-5).
 
-Throughout steps 4 and 5 the tests are fixed and the code moves (BR-8).
+Throughout steps 5 and 6 the tests are fixed and the code moves (BR-8).
 
 ## Alternative Or Failure Workflows
 
 - **The harness for a level does not exist yet.** The skeleton is still authored
-  at step 3 and stays `skeleton` through step 5, ending in Known Gaps with an
+  at step 4 and stays `skeleton` through step 6, ending in Known Gaps with an
   owner (BR-4, BR-5). Deferring the harness is legitimate; deferring the file is
   what BR-4 forbids.
 - **A level genuinely does not apply.** Its task group is dropped and the reason
@@ -128,6 +151,7 @@ Throughout steps 4 and 5 the tests are fixed and the code moves (BR-8).
 | --- | --- | --- |
 | A test file first created after the implementation it covers | The test can only confirm what the code already does; the change reads as tested while nothing was ever refuted | BR-4 places the file before implementation; BR-6 makes a violation visible after the fact |
 | A finished test-plan showing every row `passing` | Identical to what a test-last change produces, so a reviewer cannot tell the two apart | BR-6 keeps the initial status alongside the current one |
+| A test that was never capable of failing - green before its implementation, or asserting a value it recomputed the way the code does | Every ordering rule is satisfied and nothing was ever refuted, which is the same outcome as having written no test at all, reached by a more expensive route | BR-11 makes an unexplained green initial status an error; BR-12 forces the falsifier to be named while the test is still being designed |
 | A test quietly rewritten until it agrees with the code | The change reads as test-first while the tests were fitted to the implementation - the exact failure mode BR-4 and BR-6 do not reach, because the file existed and the statuses are honest | BR-8 fixes the direction of adaptation, BR-9 requires every test change to carry its ground, and the record is checked rather than trusted |
 
 # Assumptions
@@ -144,4 +168,5 @@ Throughout steps 4 and 5 the tests are fixed and the code moves (BR-8).
 | Date | Change | Verified Status | Evidence / Notes |
 | --- | --- | --- | --- |
 | 2026-08-02 | skeleton-tests-before-implementation | verified | BR-1 `lib/check.mjs:29,885`; BR-4 `templates/tasks.md:28` (group 3 precedes group 4) and test `IT-001`; BR-5 `lib/check.mjs:828,896` and tests `UT-003`/`UT-004`/`UT-005`; BR-6 `lib/check.mjs:903-910`, `templates/test-plan.md:80,87`, tests `UT-006`/`UT-007`/`NEG-002`; BR-7 `schema.yaml:323` and tests `IT-002`/`IT-003`. BR-2 and BR-3 untouched by this change and unverified against code |
+| 2026-08-02 | require-tests-that-can-fail | verified | BR-3 `lib/check.mjs:1063-1068` (routed through `hardensAtArchive`) and tests `UT-209`/`NEG-203`; BR-5 `lib/check.mjs:1104-1111` (id and Owner resolved by header name) and tests `UT-210`/`UT-211`; BR-8 `templates/test-plan.md:141-150` and test `IT-201`; BR-11 `lib/check.mjs:877-882` (`explainedStatus`), `lib/check.mjs:1071-1079`, `templates/test-plan.md:64-68`, tests `UT-201` - `UT-204`, `NEG-201`, `IT-203`; BR-12 `lib/check.mjs:891-893` (`falsifierColumn`), `lib/check.mjs:1033-1053`, `templates/test-plan.md:78`, `schema.yaml:254-259,300-307`, tests `UT-205` - `UT-208`, `NEG-202`, `NEG-204`, `IT-202` - `IT-204`. BR-1, BR-2, BR-4, BR-6, BR-7, BR-9, BR-10 unchanged and carried forward |
 | 2026-08-02 | enforce-test-change-discipline | verified | BR-8 `openspec/schemas/okf-gated-feature/templates/tasks.md:50` and test `IT-101`; BR-9 `lib/check.mjs:853` (`testChangeGround`), `lib/check.mjs:873-921` (`checkTestChanges`), `templates/test-plan.md:148`, tests `UT-101` - `UT-106`, `NEG-101`, `NEG-102`, `IT-103`; BR-10 `openspec/schemas/okf-gated-feature/schema.yaml:342` and test `IT-102`. BR-1 - BR-7 unchanged and carried forward from the previous pass |
