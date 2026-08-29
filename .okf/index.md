@@ -20,12 +20,13 @@ regenerations - that column is the only hand-written content in this file.
 | Capability | Verified | Verified At | Pending Changes | Criticality | Status |
 | --- | --- | --- | --- | --- | --- |
 | [artifact-hygiene](features/artifact-hygiene.md) | verified | 2026-08-02 | - | normal | stable |
-| [okf-archive-gate](features/okf-archive-gate.md) | verified | 2026-08-02 | - | normal | stable |
+| [okf-archive-gate](features/okf-archive-gate.md) | verified | 2026-08-05 | - | normal | stable |
 | [okf-audit](features/okf-audit.md) | verified | 2026-08-01 | - | normal | stable |
 | [okf-bundle-format](features/okf-bundle-format.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-durable-references](features/okf-durable-references.md) | verified | 2026-08-02 | - | normal | stable |
 | [okf-migrate](features/okf-migrate.md) | verified | 2026-08-01 | - | normal | stable |
 | [okf-next](features/okf-next.md) | verified | 2026-08-02 | - | normal | stable |
+| [okf-related-knowledge](features/okf-related-knowledge.md) | verified | 2026-08-05 | - | normal | stable |
 | [test-first-gate](features/test-first-gate.md) | verified | 2026-08-03 | - | normal | stable |
 
 ## Decisions
@@ -61,6 +62,10 @@ regenerations - that column is the only hand-written content in this file.
 | [The kit records test ordering; it does not verify it](decisions/2026-08-02-the-kit-records-test-ordering-it-does-not-verify-it.md) | 2026-08-02 | accepted | test-first-gate |
 | [A rule ships where it is needed, not where it can be dogfooded](decisions/2026-08-03-a-rule-ships-where-it-is-needed-not-where-it-can-be-dogfooded.md) | 2026-08-03 | accepted | test-first-gate |
 | [A rule the checker cannot see stays with the author](decisions/2026-08-03-a-rule-the-checker-cannot-see-stays-with-the-author.md) | 2026-08-03 | accepted | test-first-gate, okf-archive-gate |
+| [Relatedness is derived from frontmatter the bundle already carries, never declared in a field](decisions/2026-08-05-relatedness-is-derived-not-declared.md) | 2026-08-05 | accepted | okf-related-knowledge |
+| [The derivation is a floor, not the definition of relatedness](decisions/2026-08-05-the-derivation-is-a-floor-not-a-definition.md) | 2026-08-05 | accepted | okf-related-knowledge |
+| [The gate reads structure and reports candidates, and never refuses over its own derivation](decisions/2026-08-05-the-gate-never-refuses-over-its-own-derivation.md) | 2026-08-05 | accepted | okf-archive-gate, okf-related-knowledge |
+| [The read set gets its own table, and the OKF Link table is not widened](decisions/2026-08-05-the-read-set-gets-its-own-table.md) | 2026-08-05 | accepted | okf-related-knowledge, okf-archive-gate |
 
 ## Needs Revision Ledger
 

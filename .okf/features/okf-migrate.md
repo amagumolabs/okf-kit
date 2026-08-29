@@ -13,7 +13,7 @@ pending_changes: []
 code_paths: [lib/migrate.mjs, bin/okf.mjs, lib/install.mjs]
 sources:
   - id: grill-2026-08-01
-    resource: 'Grill session 2026-08-01, after reading lib/install.mjs:26-28 and finding that upgrade''s payload cannot reach .okf/features/: "okf upgrade về cấu trúc không migrate được entry"'
+    resource: 'Grill session 2026-08-01, after reading lib/install.mjs:26-28 and finding that upgrade''s payload cannot reach .okf/features/: "okf upgrade updates the structure but cannot migrate entries"'
   - id: kit-ownership-contract
     resource: README.md
 linked_changes:

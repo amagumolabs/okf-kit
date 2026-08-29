@@ -8,6 +8,10 @@ Newest date first, as the specification's log format requires.
 -->
 
 
+## 2026-08-05
+
+**Update** `okf-related-knowledge` verified in `add-okf-related-knowledge` - BR-1..BR-10 `match` against `lib/check.mjs` and the shipped schema, with line references in the change's verification.md. BR-11 was an `okf-gap` found by the gate running on its own author: promoting the change's four decisions made all four candidates of the change that wrote them. Repaired in order - rule, spec, test-plan row, UT-624 red, then code. 304 tests pass; 20 of the new assertions were red before implementation and 10 green by design as over-fire guards.
+
 ## 2026-08-03
 
 **Update** `test-first-gate` verified in `tighten-test-case-coverage` - BR-13 `templates/test-cases.md:108-115` (Class column, six seeded rows), `lib/check.mjs:1284-1299` (`checkBoundaryCoverage` - a warning, never an error) and `lib/check.mjs:791`, tests `UT-401`, `UT-405`, `UT-406`, `NEG-401`, `NEG-402`; BR-14 `schema.yaml:273-278` and `templates/test-cases.md:102-106`, test `UT-402`; BR-15 `templates/test-cases.md:76-93` and `schema.yaml:285-291`, tests `UT-403` and `UT-408`; BR-16 `templates/test-plan.md:107`, `templates/verification.md:96`, `schema.yaml:292-295`, tests `UT-404`, `UT-407`. BR-1 - BR-12 untouched by this change and carried forward

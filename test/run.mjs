@@ -128,7 +128,27 @@ Admin accounts need a second factor.
 ### Modified Capabilities
 `;
 
-const OKF_LINK = `# OKF Link
+/**
+ * The one Related Knowledge row the clean fixture needs: the scaffold ships a
+ * decision whose `affects_features` names `user-auth`, so the derivation produces
+ * it as a candidate and a fixture that did not mention it would warn.
+ */
+const RELATED_ROWS = [
+  [
+    '`.okf/decisions/2026-07-30-verify-factor-before-session.md`',
+    'affects user-auth',
+    'Session ordering decides where the second factor is checked',
+    'Decision',
+  ],
+];
+
+/**
+ * The fixture's `okf-link.md`, parameterised by its Related Knowledge rows so a
+ * test names only what it varies. `null` omits the section entirely, `[]` leaves
+ * it present and silent - the two states this change has to tell apart.
+ */
+function okfLink(related = RELATED_ROWS) {
+  const head = `# OKF Link
 
 | Capability | OKF File | Verified | Pending For This Change | New Or Enriched |
 | --- | --- | --- | --- | --- |
@@ -136,6 +156,20 @@ const OKF_LINK = `# OKF Link
 
 **Last synced**: 2026-07-30T00:00:00Z
 `;
+  if (related === null) return head;
+  const rows = related.map((cells) => `| ${cells.join(' | ')} |`).join('\n');
+  return `${head}
+# Related Knowledge
+
+| File | Signal | Why It Bears On This Change | Read |
+| --- | --- | --- | --- |
+${rows}${rows ? '\n' : ''}`;
+}
+
+const OKF_LINK = okfLink();
+
+/** Rewrite the fixture change's `okf-link.md` with the given related rows. */
+const writeLink = (root, related) => write(root, 'openspec/changes/add-mfa/okf-link.md', okfLink(related));
 
 /**
  * Two decisions in the house style this repository's own designs use: a bold lead
@@ -3525,6 +3559,428 @@ test('NEG-402 two rows for one class are both accepted', (root) => {
     [],
     'the check counts rows and never classes - counting classes would require judging what a class is'
   );
+});
+
+// ---------------------------------------------------------------------------
+// The related knowledge surface: what a change reads but does not write
+// ---------------------------------------------------------------------------
+
+const LINK = `${CHANGE}/okf-link.md`;
+const RELATED = /Related Knowledge/i;
+
+/** A second feature entry, so the `code_paths` derivation has something to see. */
+function featureEntry(name, codePaths) {
+  return `---
+type: Feature Knowledge
+title: ${name}
+description: A second capability, so the derivation has more than one entry to read.
+status: stable
+verification_state: verified
+verified_at: 2026-07-30
+verified:
+  - by: anthropic/claude-opus-5
+    at: 2026-07-30T00:00:00Z
+criticality: normal
+pending_changes: []
+code_paths: [${codePaths.join(', ')}]
+sources:
+  - id: prd
+    resource: docs/prd.md
+linked_changes: []
+generated:
+  by: anthropic/claude-opus-5
+  at: 2026-07-30T00:00:00Z
+---
+
+# Summary
+
+A second entry in the fixture bundle.
+`;
+}
+
+/**
+ * A decision from an EARLIER change - prior knowledge, which is what a candidate
+ * is. `promotedBy` is what BR-11 reads: a decision naming the change under test
+ * is one that change authored, not one it read.
+ */
+function decisionFile(title, affects, promotedBy = 'add-sessions') {
+  return `---
+type: Decision
+title: ${title}
+description: A second decision, so the affects_features derivation has more than one file to read.
+date: 2026-07-30
+status: stable
+decision_status: accepted
+affects_features:
+${affects.map((a) => `  - ${a}`).join('\n')}
+sources:
+  - id: change
+    resource: change:${promotedBy}
+linked_changes:
+  - ${promotedBy}
+---
+
+# Decision
+
+Recorded so a later change reads it.
+`;
+}
+
+/** Add a feature entry and regenerate the index, which must list every entry. */
+function addEntry(root, name, codePaths) {
+  write(root, `.okf/features/${name}.md`, featureEntry(name, codePaths));
+  writeIndex(root, { today: '2026-07-30' });
+}
+
+function addDecision(root, slug, title, affects, promotedBy) {
+  write(root, `.okf/decisions/2026-07-30-${slug}.md`, decisionFile(title, affects, promotedBy));
+  writeIndex(root, { today: '2026-07-30' });
+}
+
+/** Findings about the fixture change's okf-link, whatever their level. */
+const linkFindings = (report, re) => report.findings.filter((f) => f.file === LINK && re.test(f.message));
+
+test('UT-601 a missing related knowledge table warns in flight', (root) => {
+  writeLink(root, null);
+  const report = check(root);
+  const hits = linkFindings(report, RELATED);
+  assert.equal(hits.length, 1, 'expected exactly one finding about the missing table');
+  assert.equal(hits[0].level, 'warn', 'a change in flight is told, not blocked');
+});
+
+test('UT-602 the same change is blocked at the archive boundary', (root) => {
+  writeLink(root, null);
+  const hits = linkFindings(check(root, ARCHIVE), RELATED);
+  assert.equal(hits.length, 1, 'expected exactly one finding about the missing table');
+  assert.equal(hits[0].level, 'error', 'archive is the last moment the kit gets to insist');
+});
+
+test('UT-603 a table with one resolving row is clean', (root) => {
+  assert.deepEqual(
+    linkFindings(check(root), RELATED).map((f) => f.message),
+    [],
+    'the shipped fixture already carries a filled table - firing on it would be an over-fire'
+  );
+});
+
+test('UT-604 a related table with no rows is reported', (root) => {
+  writeLink(root, []);
+  const hits = linkFindings(check(root), RELATED);
+  assert.equal(hits.length, 1, 'a heading with no rows says nothing, which is not the same as saying none');
+  assert.equal(hits[0].level, 'warn');
+});
+
+test('UT-605 a stated empty set passes both runs', (root) => {
+  writeLink(root, [['none', '-', 'no decision names this capability and no entry shares a code path', '-']]);
+  assert.deepEqual(linkFindings(check(root), RELATED).map((f) => f.message), [], 'in flight');
+  assert.deepEqual(linkFindings(check(root, ARCHIVE), RELATED).map((f) => f.message), [], 'at the boundary');
+});
+
+test('UT-605b a stated empty set with no reason is not a statement', (root) => {
+  writeLink(root, [['none', '-', '-', '-']]);
+  assertError(check(root), /no specific reason/, 'the bare word "none" records that nobody wrote a reason');
+});
+
+test('UT-606 a related row naming a missing file is an error', (root) => {
+  writeLink(root, [['`.okf/decisions/2026-01-01-gone.md`', 'judgement', 'It used to say something', 'Decision']]);
+  assertError(check(root), /listed as related but does not exist/, 'a pointer that resolves is the one mechanical half');
+});
+
+test('UT-607 a resolving related row leaves the change owing nothing extra', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  writeLink(root, [
+    ...RELATED_ROWS,
+    ['`.okf/features/session-store.md`', 'judgement', 'Sessions are where the factor lands', 'Summary'],
+  ]);
+  assert.deepEqual(
+    check(root, ARCHIVE).findings.filter((f) => /session-store/.test(f.message)),
+    [],
+    'reading an entry creates no evidence, no pending change, and no attestation'
+  );
+});
+
+test('UT-608 a file in both tables is reported', (root) => {
+  writeLink(root, [
+    ...RELATED_ROWS,
+    ['`.okf/features/user-auth.md`', 'judgement', 'It is the capability this change modifies', 'BR-1'],
+  ]);
+  assertError(check(root), /both as a capability this change modifies and as related/, 'one file, one relationship');
+});
+
+test('UT-609 a decision path resolves as a related row', (root) => {
+  assert.deepEqual(
+    check(root).findings.filter((f) => /verify-factor-before-session/.test(f.message)),
+    [],
+    'the read set is not restricted to feature entries - decisions are the half nothing read before'
+  );
+});
+
+test('UT-610 an unmentioned overlapping entry warns', (root) => {
+  addEntry(root, 'session-store', ['src/auth/**']);
+  const report = check(root);
+  const hits = linkFindings(report, /session-store/);
+  assert.equal(hits.length, 1, 'a shared code path is the second signal');
+  assert.equal(hits[0].level, 'warn', 'overlap is a heuristic, and a heuristic never errors');
+});
+
+test('UT-611 an unmentioned decision warns', (root) => {
+  addDecision(root, 'rotate-recovery-codes', 'Recovery codes rotate on every use', ['user-auth']);
+  const hits = linkFindings(check(root), /rotate-recovery-codes/);
+  assert.equal(hits.length, 1, 'a decision filed against a linked capability is the first signal');
+  assert.equal(hits[0].level, 'warn');
+});
+
+test('UT-612 the candidate warning does not harden at archive', (root) => {
+  addEntry(root, 'session-store', ['src/auth/**']);
+  const hits = linkFindings(check(root, ARCHIVE), /session-store/);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].level, 'warn', 'an error here is satisfied by pasting every candidate in');
+});
+
+test('UT-613 a recorded set wider than the derivation is clean', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  writeLink(root, [
+    ...RELATED_ROWS,
+    ['`.okf/features/session-store.md`', 'judgement', 'No signal produced it; it still binds', 'Summary'],
+  ]);
+  assert.deepEqual(
+    linkFindings(check(root, ARCHIVE), /session-store|Related Knowledge/).map((f) => f.message),
+    [],
+    'the derivation is a floor - a wider recorded set is the agent doing more, not less'
+  );
+});
+
+test('UT-614 a related entry is owed no evidence and no attestation', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  writeLink(root, [
+    ...RELATED_ROWS,
+    ['`.okf/features/session-store.md`', 'judgement', 'Read for the session lifecycle', 'Summary'],
+  ]);
+  const report = check(root, ARCHIVE);
+  assert.deepEqual(
+    report.findings.filter((f) => /session-store/.test(f.message)),
+    [],
+    'no Rule Evidence row, no cleared pending list, no attestation is demanded of a file only read'
+  );
+});
+
+test('UT-615 relevance is never judged', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  writeLink(root, [
+    ...RELATED_ROWS,
+    ['`.okf/features/session-store.md`', 'judgement', 'Listed for a reason only the author has', 'Summary'],
+  ]);
+  assert.deepEqual(
+    linkFindings(check(root, ARCHIVE), /session-store/).map((f) => f.message),
+    [],
+    'whether a listed file is genuinely related is a judgement about meaning, and has no honest checker'
+  );
+});
+
+test('UT-616 an unrecognised relation key is ignored', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  edit(root, '.okf/features/user-auth.md', (t) =>
+    t.replace('code_paths: [src/auth/**]', 'code_paths: [src/auth/**]\nrelated:\n  - session-store')
+  );
+  assert.deepEqual(
+    linkFindings(check(root), /session-store/).map((f) => f.message),
+    [],
+    'candidates come from affects_features and code_paths, never from a hand-maintained edge list'
+  );
+});
+
+const instruction = (id) => {
+  const text = shipped('schema.yaml');
+  const start = text.indexOf(`  - id: ${id}\n`);
+  assert.ok(start !== -1, `the schema must still declare the "${id}" artifact`);
+  const next = text.indexOf('\n  - id: ', start + 1);
+  return text.slice(start, next === -1 ? undefined : next);
+};
+
+test('UT-617 the okf-link template ships the related knowledge section', () => {
+  const tpl = shipped('templates/okf-link.md');
+  assert.match(tpl, /#+\s*Related Knowledge/i, 'the section is where the read set is recorded');
+  const section = tpl.slice(tpl.search(/#+\s*Related Knowledge/i));
+  for (const column of [/\bSignal\b/i, /\bWhy\b/i, /\bRead\b/i]) {
+    assert.match(section, column, `the table must carry a ${column} column - a bare path is not a row`);
+  }
+});
+
+test('UT-618 the okf-link instruction states both signals, dismissal, and judgement', () => {
+  const text = instruction('okf-link');
+  assert.match(text, /affects_features/, 'the decision signal');
+  assert.match(text, /code_paths/, 'the overlap signal');
+  assert.match(text, /candidate/i, 'a signal produces a candidate, not a verdict');
+  assert.match(text, /dismiss/i, 'a dismissed candidate keeps its row');
+  assert.match(text, /judgement/i, 'judgement is a source of its own, not an exception');
+});
+
+test('UT-619 the okf-link instruction rejects a bare path', () => {
+  const text = instruction('okf-link');
+  assert.match(text, /why it is related/i, 'the row says why');
+  assert.match(text, /BR-n|section to read/i, 'and what to read');
+});
+
+test('UT-620 the okf-link instruction states the empty-set reason form', () => {
+  assert.match(
+    instruction('okf-link'),
+    /none\s*-\s*<[^>]*reason[^>]*>/i,
+    'an empty set is stated in the same reason-or-path form the kit uses everywhere else'
+  );
+});
+
+test('UT-621 the reconcile step re-runs the scan and no later artifact does', () => {
+  assert.match(instruction('proposal'), RELATED, 'the second scan is pinned to the reconcile step');
+  for (const id of ['specs', 'test-cases', 'test-plan', 'tasks']) {
+    assert.ok(
+      !RELATED.test(instruction(id)),
+      `the "${id}" instruction must not ask for a rescan - the scan happens exactly twice`
+    );
+  }
+});
+
+test('UT-622 the verification instruction checks a rule edit against neighbours', () => {
+  const text = instruction('verification');
+  assert.match(text, RELATED, 'the pass reads the recorded read set');
+  assert.match(text, /conflict/, 'and names the verdict an edit that reaches a neighbour produces');
+});
+
+test('UT-623 the okf-link instruction names decisions as a source to read', () => {
+  assert.match(
+    instruction('okf-link'),
+    /\.okf\/decisions\//,
+    'a decision no later change is directed to read binds nobody'
+  );
+});
+
+test('UT-624 a decision this change promoted is not a candidate for it', (root) => {
+  addDecision(root, 'rotate-recovery-codes', 'Recovery codes rotate on every use', ['user-auth']);
+  assert.equal(
+    linkFindings(check(root), /rotate-recovery-codes/).length,
+    1,
+    'precondition: a decision an earlier change promoted is prior knowledge, and a candidate as usual'
+  );
+
+  addDecision(root, 'rotate-recovery-codes', 'Recovery codes rotate on every use', ['user-auth'], 'add-mfa');
+  assert.deepEqual(
+    linkFindings(check(root), /rotate-recovery-codes/).map((f) => f.message),
+    [],
+    'a change authors the decisions it promotes rather than reading them - asking for it back asks it to cite itself'
+  );
+});
+
+test('NEG-601 a change with no okf-link is not also missing a read set', (root) => {
+  fs.rmSync(path.join(root, LINK));
+  const report = check(root, ARCHIVE);
+  assertError(report, /no okf-link\.md/, 'the missing artifact is still the finding');
+  assert.deepEqual(
+    report.findings.filter((f) => RELATED.test(f.message)),
+    [],
+    '"no read set recorded" and "no link artifact" stay distinct conditions'
+  );
+});
+
+test('NEG-602 the zero-to-one row boundary', (root) => {
+  writeLink(root, []);
+  assert.equal(linkFindings(check(root), RELATED).length, 1, 'zero rows is silence');
+  writeLink(root, [['none', '-', 'nothing in the bundle bears on this change', '-']]);
+  assert.equal(linkFindings(check(root), RELATED).length, 0, 'one stated row is an answer');
+});
+
+test('NEG-603 a repeated related row produces at most one finding', (root) => {
+  const missing = ['`.okf/decisions/2026-01-01-gone.md`', 'judgement', 'It used to say something', 'Decision'];
+  writeLink(root, [...RELATED_ROWS, missing, missing]);
+  assert.equal(
+    linkFindings(check(root), /2026-01-01-gone/).length,
+    1,
+    'a repeated row is noise, not a second defect'
+  );
+});
+
+test('NEG-604 a code path added after the link was written still produces a candidate', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  assert.equal(linkFindings(check(root), /session-store/).length, 0, 'no overlap yet');
+  edit(root, '.okf/features/session-store.md', (t) =>
+    t.replace('code_paths: [src/store/**]', 'code_paths: [src/store/**, src/auth/**]')
+  );
+  assert.equal(
+    linkFindings(check(root), /session-store/).length,
+    1,
+    'the derivation is computed per run, never read from a cached list'
+  );
+});
+
+test('NEG-605 another change\'s linked capability is not a candidate here', (root) => {
+  addEntry(root, 'session-store', ['src/store/**']);
+  addDecision(root, 'sessions-expire-nightly', 'Sessions expire nightly', ['session-store']);
+  write(
+    root,
+    'openspec/changes/add-store/okf-link.md',
+    '# OKF Link\n\n| Capability | OKF File | Verified | Pending For This Change | New Or Enriched |\n' +
+      '| --- | --- | --- | --- | --- |\n| session-store | `.okf/features/session-store.md` | verified | no | enriched |\n'
+  );
+  assert.deepEqual(
+    linkFindings(check(root), /sessions-expire-nightly/).map((f) => f.message),
+    [],
+    'the derivation is scoped to this change\'s linked capabilities, not to the whole bundle'
+  );
+});
+
+test('IT-601 a fully filled change archives clean', (root) => {
+  addEntry(root, 'session-store', ['src/auth/**']);
+  addDecision(root, 'rotate-recovery-codes', 'Recovery codes rotate on every use', ['user-auth']);
+  writeLink(root, [
+    ...RELATED_ROWS,
+    ['`.okf/features/session-store.md`', 'code_paths', 'Sessions are where the second factor lands', 'Summary'],
+    ['`.okf/decisions/2026-07-30-rotate-recovery-codes.md`', 'affects user-auth', 'Recovery is the fallback path', 'Decision'],
+  ]);
+
+  const report = check(root, ARCHIVE);
+  assert.deepEqual(
+    report.findings.map((f) => `[${f.level}] ${f.file}: ${f.message}`),
+    [],
+    'both signals fired, both candidates were named, and the whole gate is silent'
+  );
+});
+
+test('IT-602 the existing archive gate findings are unchanged', (root) => {
+  const before = [
+    {
+      what: 'a missing static analysis table',
+      mutate: (r) => edit(r, `${CHANGE}/verification.md`, (t) => t.replace(/# Static Analysis[\s\S]*?(?=\n# )/, '')),
+      re: /Static Analysis/,
+      level: 'error',
+    },
+    {
+      what: 'an empty decision promotion table',
+      mutate: (r) => edit(r, `${CHANGE}/verification.md`, (t) => t.replace(/\| Verify the second factor[\s\S]*$/, '')),
+      re: /Decision Promotion/,
+      level: 'error',
+    },
+    {
+      what: 'a missing okf-link',
+      mutate: (r) => fs.rmSync(path.join(r, LINK)),
+      re: /no okf-link\.md/,
+      level: 'error',
+    },
+    {
+      what: 'an entry that still lists the change as pending',
+      mutate: (r) => edit(r, '.okf/features/user-auth.md', (t) => t.replace('pending_changes: []', 'pending_changes: [add-mfa]')),
+      re: /pending_changes/,
+      level: 'error',
+    },
+  ];
+
+  for (const c of before) {
+    c.mutate(root);
+    const hits = check(root, ARCHIVE).findings.filter((f) => c.re.test(f.message));
+    assert.ok(hits.length > 0, `${c.what} must still be reported`);
+    assert.ok(
+      hits.some((f) => f.level === c.level),
+      `${c.what} must still be reported at ${c.level}, got ${hits.map((f) => f.level).join(', ')}`
+    );
+    scaffold(root);
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -13,7 +13,7 @@ pending_changes: []
 code_paths: [lib/check.mjs]
 sources:
   - id: review-2026-08-02
-    resource: 'Review conversation 2026-08-02, after archiving moved a change under openspec/changes/archive/: "sau khi archive 1 change, toàn bộ file được di chuyển sang changes/archive. Chúng ta có cần phải thêm prompt để cập nhật reference source/decision cho okf hay không?"'
+    resource: 'Review conversation 2026-08-02, after archiving moved a change under openspec/changes/archive/: "after archiving one change, all files are moved to changes/archive. Do we need to add a prompt to update reference sources/decisions for OKF?"'
   - id: change-guard-durable-references
     resource: change:guard-durable-references
 linked_changes:

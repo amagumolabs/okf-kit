@@ -4,25 +4,28 @@ title: okf-archive-gate
 description: The pre-archive completeness gate that decides whether a change's OKF pass is finished, and that must not be silenced by any escape hatch.
 status: stable
 verification_state: verified
-verified: 
+verified:
   - by: anthropic/claude-opus-5
-    at: 2026-08-02T00:00:00Z
-verified_at: 2026-08-02
+    at: 2026-08-05T00:00:00Z
+verified_at: 2026-08-05
 criticality: normal
 pending_changes: []
 code_paths: [lib/check.mjs, openspec/schemas/okf-gated-feature/schema.yaml, openspec/schemas/okf-gated-feature/templates/verification.md]
 sources:
   - id: review-2026-07-30
-    resource: 'Review conversation 2026-07-30, reproduced against a copy of a downstream project: a change whose okf-link rows were all "no domain knowledge" archived clean with every OKF table in verification.md left blank - "tại sao okf-kit của chúng ta không bắt buộc cập nhật decisions trong trường hợp này? Đó có phải là lỗ hổng hay không"'
+    resource: 'Review conversation 2026-07-30, reproduced against a copy of a downstream project: a change whose okf-link rows were all "no domain knowledge" archived clean with every OKF table in verification.md left blank - "why doesn''t our okf-kit require updating decisions in this case? Is that a gap?"'
   - id: change-enforce-decision-promotion
     resource: change:enforce-decision-promotion
   - id: review-2026-08-02
     resource: 'Comparison of okf-kit against a hand-written agent rulebook, 2026-08-02: that rulebook required the agent to paste real `npm run lint && npm run typecheck` stdout into its review artifact, and okf-kit''s verification.md had no equivalent - "CLI COMPILER EVIDENCE: Run project linter & typechecker CLI commands. Paste actual stdout/stderr outputs into review.md"'
   - id: change-add-static-analysis-gate
     resource: change:add-static-analysis-gate
+  - id: grill-2026-08-04
+    resource: 'Review conversation 2026-08-04 on whether okf-link.md narrows what a change may know - "what if updating one area impacts another?". The gate reaches the record of the wider read set for the same reason it reaches the Decision Promotion table: a record only required by an instruction is a record that is skipped quietly.'
 linked_changes:
   - enforce-decision-promotion
   - add-static-analysis-gate
+  - add-okf-related-knowledge
 generated:
   by: anthropic/claude-opus-5
   at: 2026-07-30T00:00:00Z
@@ -87,6 +90,9 @@ stated reason there is none.
 | BR-10 | Lint and type checking MUST each have their own row. A project that runs neither discharges the row with a stated reason, never by deleting it - a deleted row makes "this project has no type checker" indistinguishable from "nobody thought about it", which is the distinction every reason-or-path escape in this kit exists to preserve. | review-2026-08-02 |
 | BR-11 | Each row MUST carry a reported result, or a `Not Applicable because <reason>` in place of one. This is BR-5's reason-or-path escape applied to evidence rather than to a promotion target. The command column is recorded for the reader and is not itself gated: a row whose command was never filled in has no result either, and the result is what the gate reads. | review-2026-08-02 |
 | BR-12 | The gate MUST read the reported result and MUST NOT execute the project's commands itself. Running arbitrary project commands from a validator crosses a trust boundary the kit has never crossed, and CI already runs them; the kit records what a change claims and leaves the claim visible to review. | review-2026-08-02 |
+| BR-13 | A change MUST record the bundle knowledge it read but did not modify before archiving, in the Related Knowledge table of `okf-link.md`. The gate reads the record's structure - that the table is not silent and that each row resolves - and reads nothing about whether the scan was thorough, which is a judgement about meaning. | grill-2026-08-04 |
+| BR-14 | A missing or silent Related Knowledge table MUST be a warning in a normal run and an error under `--archive`. The set is derived twice and can legitimately be incomplete while a change is in flight, so an unconditional error fires at a change doing exactly what the instruction asks. | grill-2026-08-04 |
+| BR-15 | A candidate the gate can derive but which no row mentions MUST be a warning, never an error. Overlap of `code_paths` and a decision's `affects_features` produce candidates, and whether a candidate is genuinely related is an inference; an error there would be satisfied by listing every candidate, which fills the table and widens nothing. | grill-2026-08-04 |
 
 # Data Entities
 

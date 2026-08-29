@@ -71,10 +71,50 @@ artifacts:
          `no domain knowledge - <specific reason>` instead of a path. Do not
          create an empty entry to satisfy the table.
 
-      7. Write okf-link.md: one row per capability, mirroring each entry's
+      7. Write the OKF Link table: one row per capability, mirroring each entry's
          `verification_state` at the time of writing.
 
-      8. Update `.okf/index.md` (Features table) for any new entry.
+      8. Scan for the READ SET and write the Related Knowledge table. What a
+         change must read is wider than what it writes: a decision recorded under
+         one capability binds the next change to a neighbour, and two entries
+         whose code paths overlap can be made to contradict each other by an edit
+         that looks local from inside either one.
+
+         Derive candidates from what the bundle already records - never from a
+         relationship field maintained by hand, which decays silently:
+
+         - a decision under `.okf/decisions/` whose `affects_features` names a
+           capability in the OKF Link table. `.okf/index.md` lists them with what
+           each affects, so start there
+         - a feature entry whose `code_paths` intersect those of an entry in the
+           OKF Link table
+
+         Then read each candidate far enough to say why it is related and what to
+         read in it. A candidate is a candidate and not a verdict: one you judge
+         irrelevant keeps its row with the reason, because a dismissal in writing
+         is a decision and an omission is indistinguishable from not having
+         looked.
+
+         The two signals are a floor, not the definition of relatedness. A file
+         you reached by judgement is listed on the same terms, with `judgement`
+         as its signal - a derivation that could only ever produce what it
+         computed would teach you to stop looking past it.
+
+         Every row names why the file is related and which `BR-n` or section to
+         read. A row naming only a path trades one unbounded read for another.
+
+         If nothing bears on this change, write `none - <specific reason>` in the
+         File column. A blank table and "the scan found nothing" are different
+         claims, and only one of them is an answer.
+
+         Nothing in this table carries an obligation: no `pending_changes`, no
+         Rule Evidence row, no attestation. A file that turns out to need editing
+         moves up into the OKF Link table, and nothing is ever in both.
+
+         You will run this scan once more, at the proposal's reconcile step,
+         against the Capabilities section once it settles.
+
+      9. Update `.okf/index.md` (Features table) for any new entry.
 
       Do not invent requirements. Inferred details go under Assumptions, and
       unresolved blockers under Open Questions, in the durable entry - never in
@@ -113,10 +153,17 @@ artifacts:
       - **Impact**: affected code, APIs, dependencies, systems.
 
       RECONCILE okf-link.md before you finish. The Capabilities section and the
-      okf-link table must list exactly the same capabilities. okf-link.md was
+      OKF Link table must list exactly the same capabilities. okf-link.md was
       written before this file existed, so it is normally the one that needs
       fixing: create or enrich the missing entries following the okf-link
       instruction, then add their rows.
+
+      Then run the related scan a second time, against the Capabilities section
+      now that it has settled, and refresh the Related Knowledge table. This is
+      the last point at which the write set moves, so it is the last point at
+      which everything derived from it can be wrong. It is also the second and
+      final scan - no later artifact re-derives the read set, they read what this
+      one records.
 
       Then enrich each linked OKF entry with the durable knowledge this proposal
       surfaced - scope, actors, business rules (new `BR-n` ids), risks. Do not
@@ -473,7 +520,10 @@ artifacts:
       Then run the OKF verification pass. This is the step that decides whether
       the knowledge base can be trusted, so a checkbox is not evidence.
 
-      1. Read each `.okf` entry listed in okf-link.md.
+      1. Read each `.okf` entry listed in okf-link.md's OKF Link table, and each
+         file listed in its Related Knowledge table. The second list is the read
+         set: files this change is planned against and must not modify. You will
+         need them in step 3, and this is the last pass that gets to notice.
 
       2. Fill the Rule Evidence table: one row per `BR-n` this change touches,
          each with a real reference - `path/to/file.ts:120`, or the name of the
@@ -495,6 +545,13 @@ artifacts:
                         domain meaning for other features. Ask the user. Only
                         this verdict may end in `needs-revision`, and only when
                         nobody is available to decide.
+
+         Before writing any `BR-n` edit, re-read the entries in the Related
+         Knowledge table and check the edit against them. An edit is correct
+         inside the entry it lands in and can still change what a neighbour
+         means - that is a `conflict`, and it goes to the user rather than being
+         applied as a local correction. The read set exists so that this check
+         does not depend on your remembering the neighbour unaided.
 
       4. Review the entry's Domain Terms, Data Entities, Permissions And Access
          Control, and Workflows sections the same way. Correct staleness directly

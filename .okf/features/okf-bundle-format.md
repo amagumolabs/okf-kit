@@ -25,7 +25,7 @@ sources:
   - id: spec-okf-v0.2
     resource: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
   - id: grill-2026-08-01
-    resource: 'Grill session 2026-08-01 deciding the verified/verification_state split, its semantics, and the limits of human sign-off: "Hãy đề xuất, mình muốn làm đơn giản trước. Quan trọng nhất vẫn là chất lượng của OKF và openspec"'
+    resource: 'Grill session 2026-08-01 deciding the verified/verification_state split, its semantics, and the limits of human sign-off: "Please propose something - I want to keep it simple for now. The most important thing is still the quality of OKF and OpenSpec"'
 linked_changes:
   - add-okf-entry-scope-filter
   - okf-spec-conformance
