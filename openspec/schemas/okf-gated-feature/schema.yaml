@@ -108,7 +108,13 @@ artifacts:
 
       One spec file per capability in the proposal's Capabilities section:
       `specs/<capability>/spec.md`, using the existing folder name for a
-      modified capability.
+      modified capability. A NEW capability's file starts with a one-line
+      `## Purpose` section - archive copies it into the main spec, which
+      otherwise gets a TBD placeholder.
+
+      A change that alters no requirement at all (the knowledge changes but
+      no scenario does) writes no spec file: add `skip_specs: true` to the
+      change's `.openspec.yaml` and say why in the proposal's Impact section.
 
       Cite, do not copy. Where a requirement exists because of a rule in the
       linked OKF entry, add `Implements: BR-n` under the requirement text and

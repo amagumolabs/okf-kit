@@ -9,6 +9,10 @@ Two copies of the same sentence in two files drift; a citation cannot.
 Scenarios MUST use exactly four hashtags (`####`) - three fails silently.
 -->
 
+## Purpose
+
+<!-- New capability only: one sentence on what it is for. Delete for a modified capability. -->
+
 ## ADDED Requirements
 
 ### Requirement: <!-- requirement name -->

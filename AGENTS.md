@@ -40,6 +40,12 @@ and `openspec/specs/`. Read its entry and name the `BR-n` ids the request
 touches. If `openspec/changes/` already holds an active change on that
 capability, continue it instead of opening a second one.
 
+No entry yet? Seed one before routing: from `.okf/templates/feature.md.tmpl`,
+`verification_state: unverified`, holding only the rules this request touches,
+each written from the current code with its `file:line` as source and confirmed
+by the user. Seeding records what already holds; it changes nothing, so the
+request then takes its normal route.
+
 ### Decide
 
 One question decides the route:
@@ -51,7 +57,7 @@ One question decides the route:
 | --- | --- | --- | --- |
 | **Direct** | No: typo, formatting, comments, config, a non-breaking dependency bump, a refactor that keeps behavior, a test for behavior that already exists | Edit the code | Unchanged. If files moved, update `code_paths` in the affected entry |
 | **Quick fix** | No: the code breaks a `BR-n` the entry already states correctly | Write a regression test, run it and see it fail, then fix the code | Unchanged - the knowledge was already right |
-| **Rule tweak** | Yes, but small - every condition below holds | Edit in this order: the `BR-n` in the entry, the requirement in `openspec/specs/<capability>/spec.md`, a test that fails against the old code, the code. Then append a Verification History row to the entry | Updated in place, no change directory |
+| **Rule tweak** | Yes, but small - every condition below holds | Edit in this order: the `BR-n` in the entry, the requirement in `openspec/specs/<capability>/spec.md` that cites it, a test that fails against the old code, the code. Then verify that one rule: append a Verification History row with its `file:line` or test name, and if the entry was `verified`, set `verified_at` to today | Updated in place, no change directory |
 | **Full** | Yes, anything else: a new feature, a new `BR-n`, a new scenario, a behavior change, a bug the entry is silent or wrong about | `openspec-explore` while the idea is still vague, then `openspec-propose` -> `openspec-apply-change` -> verification pass -> `openspec-archive-change` | Created or enriched, then verified |
 
 A **Rule tweak** is allowed only when all of these hold:
@@ -157,7 +163,9 @@ a change that has an `okf-link.md`. In short, for every linked entry:
 4. Update `.okf/index.md`, then run the self-check below.
 
 If the pass has not happened, warn and get explicit confirmation before
-archiving anyway. Do not skip it silently.
+archiving anyway. Do not skip it silently: `openspec archive` itself does not
+check OKF, so this step is the only thing between an unverified entry and the
+archive.
 
 ## 5. Self-check
 

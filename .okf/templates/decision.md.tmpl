@@ -25,7 +25,8 @@ set `superseded_by` / `supersedes` on both.
 
 File name: `<YYYY-MM-DD>-<slug>.md`.
 
-`status`: `accepted` | `superseded` | `reversed`.
+`decision_status`: `accepted` | `superseded` | `reversed`. `status` stays the
+document lifecycle (`draft` | `stable` | `deprecated`).
 
 Create one of these during the verification pass when `design.md` holds a
 decision that outlives its change - otherwise archiving buries it under
