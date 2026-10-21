@@ -1,5 +1,5 @@
 name: okf-gated-feature
-version: 6
+version: 8
 description: OpenSpec workflow with an OKF-linked knowledge gate and a test-first implementation gate
 artifacts:
   - id: okf-link
@@ -45,8 +45,11 @@ artifacts:
          `verification_state` or `verified_at` - only the verification pass
          moves those. An entry may stay `verified` while a change is pending.
 
-      5. Every new business rule gets the next `BR-n` in that file. Never
-         renumber, never reuse. A rule that no longer applies stays, marked
+      5. Every new business rule gets an id `BR-<slug>`: a kebab-case slug of
+         2-4 words naming the rule's subject, not its value (`BR-max-items`,
+         not `BR-max-5-items`), with no change name or number in it. Read the
+         entry's rules first; a rule on an existing subject is changed in
+         place. Never rename, never reuse. A rule that no longer applies stays, marked
          `(deprecated in <change-id>)`.
 
       6. A capability with no domain knowledge (build tooling, a log format, a
@@ -59,7 +62,9 @@ artifacts:
          read in it. Files listed there are read, not modified; a file that
          turns out to need editing moves up into the OKF Link table.
 
-      8. Add or update the entry's row in `.okf/index.md`.
+      8. Add a row to `.okf/index.md` for a new entry.
+
+      9. Run `node .okf/check.mjs` and fix the warnings that are real.
 
       Inferred details go under Assumptions and unresolved blockers under Open
       Questions in the entry itself - never in this file.
@@ -72,7 +77,7 @@ artifacts:
       Create the proposal that establishes WHY this change is needed.
 
       Read the OKF entries listed in okf-link.md FIRST - they come ahead of
-      anything said in conversation. Cite a rule by its id (`BR-3`) instead of
+      anything said in conversation. Cite a rule by its id (`BR-max-items`) instead of
       restating it. Do not ask the user a question the entry already answers;
       its Assumptions and Open Questions are what should generate questions.
 
@@ -93,7 +98,7 @@ artifacts:
       Before finishing, make okf-link.md list exactly the capabilities in the
       Capabilities section - create or enrich the missing entries as the
       okf-link instruction says. Then enrich each linked entry with the durable
-      knowledge this proposal surfaced (scope, actors, new `BR-n` rules), so it
+      knowledge this proposal surfaced (scope, actors, new `BR-<slug>` rules), so it
       is not left a bare stub.
 
       Keep it to 1-2 pages. Why, not how.
@@ -117,10 +122,11 @@ artifacts:
       change's `.openspec.yaml` and say why in the proposal's Impact section.
 
       Cite, do not copy. Where a requirement exists because of a rule in the
-      linked OKF entry, add `Implements: BR-n` under the requirement text and
+      linked OKF entry, add `Implements: BR-<slug>` under the requirement text and
       keep the rule's wording in the entry only. A rule you find while writing
       the spec that is not in the entry goes into the entry first, with a new
-      `BR-n`, and is then cited.
+      `BR-<slug>`, and is then cited. A rule from another capability's entry is
+      cited with its capability: `Implements: other-capability/BR-<slug>`.
 
       Delta operations (use `##` headers):
       - **ADDED Requirements**
@@ -148,7 +154,7 @@ artifacts:
       ### Requirement: User can export data
       The system SHALL allow users to export their data in CSV format.
 
-      Implements: BR-4
+      Implements: BR-user-export
 
       #### Scenario: Successful export
       - **WHEN** user clicks "Export" button
@@ -197,7 +203,7 @@ artifacts:
       Three mappings must be complete:
       - every acceptance criterion maps to at least one test case
       - every spec scenario maps to at least one test case
-      - every `BR-n` this change touches maps to at least one test case
+      - every `BR-<slug>` this change touches maps to at least one test case
 
       A level that does not apply goes in Not Applicable with a specific reason.
 
@@ -210,8 +216,10 @@ artifacts:
       A change with a user interface covers the loading, error, empty and
       populated states, and checks that failure is shown to the user.
 
-      Cite the `BR-n` in the Source column wherever a case exists because of a
-      rule - that is what makes BR-n -> spec -> test -> code traceable.
+      Cite the rule in the Source column wherever a case exists because of
+      one, as `<capability>/BR-<slug>` - that is what makes rule -> spec ->
+      test -> code traceable. A bare `BR-<slug>` is enough only when the change links a
+      single capability.
 
       Tests express behavior through public contracts, not implementation
       structure, and assert on what the caller observes, never on mock call
@@ -234,7 +242,8 @@ artifacts:
       Test status uses exactly four values:
       - `planned`  - a row here only; no test file yet
       - `skeleton` - the file exists, declared with the runner's pending
-                     mechanism (`it.todo`, `test.todo`, `test.fixme`)
+                     mechanism (`it.todo`, `test.fixme`, `@pytest.mark.skip`,
+                     `t.Skip`, `@Disabled` - whatever the runner has)
       - `failing`  - executable, failing on its ASSERTION, not on a missing
                      import or a type error
       - `passing`  - green
@@ -243,8 +252,8 @@ artifacts:
 
       - **Unit tests for business rules** reach `failing` before their
         implementation task starts. Contract stubs (types, signatures, a route
-        returning 501, bodies that only `throw new Error('not implemented')`)
-        let them compile; a stub MUST NOT contain logic. Initial Status records
+        returning 501, bodies that only raise the language's not-implemented
+        error) let them compile; a stub MUST NOT contain logic. Initial Status records
         the actual failure, e.g. `failing: expected 403, got 200`.
 
       - **Integration and E2E tests** are written before implementation too, and
@@ -289,7 +298,7 @@ artifacts:
       parses this format to track progress.
 
       The verification group is concrete work, not boilerplate: evidence for
-      each `BR-n`, entry frontmatter updated, this change id removed from
+      each `BR-<slug>`, entry frontmatter updated, this change id removed from
       `pending_changes`.
     requires:
       - specs
@@ -309,7 +318,8 @@ artifacts:
       1. Read each entry in okf-link.md's OKF Link table, and anything listed
          under Related Knowledge.
 
-      2. Fill Rule Evidence: one row per `BR-n` this change touches, with a real
+      2. Fill Rule Evidence: one row per rule this change touches, cited as
+         `<capability>/BR-<slug>`, with a real
          `path/to/file.ts:120` or the name of the test that protects it. You
          wrote the code, so read it rather than recalling what you intended.
 
@@ -326,19 +336,24 @@ artifacts:
       4. For each linked entry: set `verification_state` (`verified` or
          `needs-revision`, never left `unverified`), set `verified_at` to today's
          date, fill `code_paths` from the evidence, remove this change id from
-         `pending_changes`, and append a Verification History row. Remove
-         change-local detail that leaked into the entry.
+         `pending_changes`, and append a Verification History row naming who
+         verified. A `criticality: high` entry is verified by a fresh-context
+         agent or signed off by a human, never only by the agent that wrote the
+         code - say which in Verified By. Remove change-local detail that
+         leaked into the entry.
 
       5. Promote any decision in design.md that outlives this change to
          `.okf/decisions/<YYYY-MM-DD>-<slug>.md` from
          `.okf/templates/decision.md.tmpl`, or note why it is change-local.
 
-      6. Update `.okf/index.md` with each entry's new state.
+      6. Add a row to `.okf/index.md` for each new entry or decision. State
+         is not kept there; the frontmatter is the record.
 
       7. Run `openspec validate <change-id>` and, for each capability this
          change syncs into `openspec/specs/`, `openspec validate <capability>`.
 
-      8. Run the self-check in `AGENTS.md`.
+      8. Run `node .okf/check.mjs` (the self-check in `AGENTS.md`) and fix
+         the warnings that are real.
 
       An entry that still lists this change in `pending_changes` after archive
       is the exact failure this workflow exists to prevent.
@@ -364,7 +379,7 @@ apply:
 
     When implementation reveals that a business rule must be different, STOP.
     Do not adjust the test and do not quietly diverge:
-      1. Amend `.okf/features/<capability>.md` (new or corrected `BR-n`).
+      1. Amend `.okf/features/<capability>.md` (new or corrected `BR-<slug>`).
       2. Update the spec that cites it - use openspec-update-change.
       3. Record the reason in test-plan.md under Test Changes.
       4. Then change the test, then the code.

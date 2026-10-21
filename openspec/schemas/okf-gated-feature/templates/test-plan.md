@@ -22,7 +22,7 @@ Delete any section with no real content. Do not leave empty table rows.
 
 # Contract Stubs
 
-<!-- Types, signatures, routes returning 501. Bodies only `throw new Error('not implemented')` - no logic. Omit if there is no new code surface. -->
+<!-- Types, signatures, routes returning 501. Bodies only raise the language's not-implemented error - no logic. Omit if there is no new code surface. -->
 
 | Contract | File | Signature Or Shape |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Delete any section with no real content. Do not leave empty table rows.
 
 <!-- Business-rule tests reach `failing` before implementation. Record the actual failure, e.g. `failing: expected 403, got 200`. -->
 
-| Test Case ID | Rule (BR-n) | Test File | Test Name | Initial Status | Status |
+| Test Case ID | Rule (capability/BR-<slug>) | Test File | Test Name | Initial Status | Status |
 | --- | --- | --- | --- | --- | --- |
 
 # Integration And E2E Tests
@@ -48,16 +48,17 @@ Delete any section with no real content. Do not leave empty table rows.
     <test-command>
     <lint-command>
     openspec validate <change-id>
+    node .okf/check.mjs
 
 # Test Changes
 
 <!--
 A pre-written test changes only when the OKF entry or spec changed first (cite
-the BR-n or spec), or when it has a mechanical defect (name it). Leave empty if
+the BR-<slug> or spec), or when it has a mechanical defect (name it). Leave empty if
 no pre-written test changed.
 -->
 
-| Date | Test | Reason | BR-n, Spec, Or Defect |
+| Date | Test | Reason | Rule, Spec, Or Defect |
 | --- | --- | --- | --- |
 
 # Known Gaps

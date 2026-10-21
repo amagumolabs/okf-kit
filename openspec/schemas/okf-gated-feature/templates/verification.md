@@ -10,20 +10,21 @@
 | Unit tests | `<test-command>` |  |
 | Integration / E2E tests | `<test-command>` |  |
 | Lint | `<lint-command>` |  |
+| Knowledge check | `node .okf/check.mjs` |  |
 
 # OKF Verification
 
 ## Rule Evidence
 
 <!--
-One row per BR-n this change touches. Verdicts:
+One row per rule this change touches, cited as `<capability>/BR-<slug>`. Verdicts:
 - `match`    - code does what the rule says
 - `okf-gap`  - entry was stale, code is right -> entry updated (say what changed)
 - `code-gap` - entry is right, code is wrong -> code fixed; never edit the entry to match a bug
 - `conflict` - a human decides; only this may end in `needs-revision`
 -->
 
-| Rule (BR-n) | Capability | Evidence (file:line or test name) | Verdict | Action Taken |
+| Rule (capability/BR-<slug>) | Evidence (file:line or test name) | Verdict | Action Taken |
 | --- | --- | --- | --- | --- |
 
 ## Decision Promotion
@@ -42,6 +43,6 @@ One row per BR-n this change touches. Verdicts:
 
 - [ ] Tests and OpenSpec validation pass, or failures are explained above
 - [ ] Every `skeleton` / `planned` test is in test-plan Known Gaps with an owner
-- [ ] Every BR-n touched has evidence and a verdict
-- [ ] Every linked entry: `verification_state` and `verified_at` set, `code_paths` filled, this change removed from `pending_changes`
-- [ ] Durable decisions promoted, `.okf/index.md` updated, AGENTS.md self-check done
+- [ ] Every rule touched has evidence and a verdict
+- [ ] Every linked entry: `verification_state` and `verified_at` set, `code_paths` filled, this change removed from `pending_changes`, Verified By recorded
+- [ ] Durable decisions promoted, new files in `.okf/index.md`, `node .okf/check.mjs` warnings handled

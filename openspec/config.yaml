@@ -3,8 +3,8 @@ schema: okf-gated-feature
 context: |
   This repository keeps three layers of one feature in sync: the OKF entry
   (.okf/features/<capability>.md - domain knowledge and business rules with stable
-  BR-n ids), the OpenSpec spec (openspec/specs/<capability>/spec.md - requirements
-  and scenarios that CITE BR-n ids instead of restating rules), and the code with
+  BR-<slug> ids such as BR-max-items), the OpenSpec spec (openspec/specs/<capability>/spec.md - requirements
+  and scenarios that CITE rule ids instead of restating rules), and the code with
   its tests.
 
   A change exists because the knowledge or a spec is changing. Requests that leave
@@ -39,4 +39,4 @@ rules:
 operations:
   archive:
     guidance:
-      - "Before archiving a change that has okf-link.md, confirm the OKF verification pass in verification.md is done: every BR-n the change touches has file:line or test evidence and a verdict, every linked entry has verification_state and verified_at set, code_paths filled, and this change id removed from pending_changes. If it is not done, warn and get explicit confirmation before archiving."
+      - "Before archiving a change that has okf-link.md, run node .okf/check.mjs and confirm the OKF verification pass in verification.md is done: every rule the change touches has file:line or test evidence and a verdict, every linked entry has verification_state and verified_at set, code_paths filled, and this change id removed from pending_changes. If it is not done, warn and get explicit confirmation before archiving."

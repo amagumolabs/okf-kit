@@ -11,13 +11,14 @@ provenance. Most of it is written and kept in sync by AI agents as a side effect
 of the OpenSpec workflow, not by a developer remembering to update a wiki.
 
 How a request reaches this directory - which route it takes, and when a change
-is needed at all - is defined in `AGENTS.md`. There is no validator: the agent
-keeps `index.md` current by hand and runs the self-check listed there.
+is needed at all - is defined in `AGENTS.md`. `check.mjs` warns about drift and
+never blocks; `AGENTS.md` says when it runs.
 
 ```text
 .okf/
   README.md
-  index.md                       # one row per entry, kept current by hand
+  check.mjs                      # warnings about drift; --status lists entry states
+  index.md                       # one row per entry, added when the file is created
   templates/
     feature.md.tmpl
     decision.md.tmpl
@@ -33,7 +34,7 @@ keeps `index.md` current by hand and runs the self-check listed there.
 | --- | --- | --- |
 | Holds | Domain knowledge that outlives any single change: terms, business rules, actors, permissions, entities, workflows | Normative requirements and scenarios for a capability |
 | Lifetime | Permanent, edited in place | Requirement contract, assembled from change deltas |
-| Rules | Stated once, with a stable `BR-n` id | Quote the id (`Implements: BR-3`), never copy the rule text |
+| Rules | Stated once, with a stable `BR-<slug>` id | Quote the id (`Implements: BR-max-items`), never copy the rule text |
 
 The single ID space is what keeps the two from drifting: a rule lives in exactly
 one place, and specs, test cases, and verification evidence all point at it.
@@ -51,7 +52,8 @@ entries it touches through a small `okf-link.md` table inside
 - `verified` - checked against the implemented code during a verification pass
   and found accurate.
 - `needs-revision` - checked and a genuine discrepancy remains that a human must
-  settle. Not the same as `unverified`, and it accrues as debt in `index.md`.
+  settle. Not the same as `unverified`; what must be settled goes under Open
+  Questions, and `node .okf/check.mjs --status` lists every entry in this state.
 
 `pending_changes` is the honest part: an entry can be `verified` overall while a
 new change adds content to it that nobody has checked yet. Any non-empty
@@ -65,6 +67,7 @@ and which entry to re-read when that code changes.
 `criticality: high` (auth, permissions, money, customer data) means verification
 must be done with fresh context or signed off by a human - the agent that wrote
 the code should not be the only judge of whether the knowledge still matches it.
+The Verified By column of the entry's history records which.
 
 ## How entries get created and updated
 
@@ -105,7 +108,8 @@ same capability, and enrich it. Name feature files after the **capability**, not
 after the change. Follow the template in `templates/`, and delete every section
 you have no real content for rather than leaving placeholders behind.
 
-Then update `index.md` and run the self-check in `AGENTS.md`. It catches exactly
+Then add the entry's row to `index.md` if it is new, and run
+`node .okf/check.mjs`. It catches exactly
 the mistakes that make a knowledge base quietly worthless: a pointer to a file
 that does not exist, a `verified` label with nothing behind it, a change archived
 while its knowledge was never checked.

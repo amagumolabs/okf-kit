@@ -8,11 +8,11 @@ Every task is a checkbox `- [ ] X.Y <description>`.
 
 ## 1. Contract Stubs
 
-- [ ] 1.1 <!-- Declare <contract> in <file>, body only `throw new Error('not implemented')` -->
+- [ ] 1.1 <!-- Declare <contract> in <file>, body only raises not-implemented -->
 
 ## 2. Pre-Implementation Unit Tests
 
-- [ ] 2.1 <!-- Write <test name> for BR-n in <test file> -->
+- [ ] 2.1 <!-- Write <test name> for <capability>/BR-<slug> in <test file> -->
 - [ ] 2.2 Run the unit tests and record each assertion failure in test-plan.md Initial Status
 
 ## 3. Integration And E2E Skeletons
@@ -36,7 +36,7 @@ Every task is a checkbox `- [ ] X.Y <description>`.
 ## 7. Verification And OKF Pass
 
 - [ ] 7.1 Run the tests, lint and openspec validate; record the results in verification.md
-- [ ] 7.2 Fill Rule Evidence with a `file:line` or test name and a verdict for every BR-n touched
+- [ ] 7.2 Fill Rule Evidence with a `file:line` or test name and a verdict for every rule touched
 - [ ] 7.3 Act on verdicts: update stale entries (`okf-gap`), fix the code (`code-gap`), ask on `conflict`
-- [ ] 7.4 For each linked entry: set `verification_state` and `verified_at`, fill `code_paths`, remove this change from `pending_changes`, add a Verification History row
-- [ ] 7.5 Promote durable decisions from design.md to `.okf/decisions/`, update `.okf/index.md`, run the AGENTS.md self-check
+- [ ] 7.4 For each linked entry: set `verification_state` and `verified_at`, fill `code_paths`, remove this change from `pending_changes`, add a Verification History row with Verified By
+- [ ] 7.5 Promote durable decisions from design.md to `.okf/decisions/`, add index rows for new files, run `node .okf/check.mjs`

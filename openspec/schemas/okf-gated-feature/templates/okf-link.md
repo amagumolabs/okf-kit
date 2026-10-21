@@ -22,4 +22,4 @@ modify, with what to read in each. Delete this section if nothing applies.
 
 | File | What To Read |
 | --- | --- |
-| `.okf/decisions/<file>.md` | <BR-n or section> |
+| `.okf/decisions/<file>.md` | <BR-<slug> or section> |

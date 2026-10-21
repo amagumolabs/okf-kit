@@ -2,17 +2,18 @@
 
 <!--
 Written before implementation, from the linked OKF entries, proposal.md and
-specs/. Describe behavior, not implementation structure. Cite the BR-n in the
-Source column wherever a case exists because of a business rule.
+specs/. Describe behavior, not implementation structure. Cite the rule in the
+Source column as `<capability>/BR-<slug>` wherever a case exists because of one; a
+bare `BR-<slug>` is enough only when the change links a single capability.
 
 Delete any section with no real content. Do not leave empty table rows.
 -->
 
 # Coverage
 
-<!-- Every acceptance criterion, spec scenario and touched BR-n maps to at least one test case. -->
+<!-- Every acceptance criterion, spec scenario and touched BR-<slug> maps to at least one test case. -->
 
-| Source (criterion, scenario, or BR-n) | Test Case IDs |
+| Source (criterion, scenario, or capability/BR-<slug>) | Test Case IDs |
 | --- | --- |
 
 # Unit Test Cases

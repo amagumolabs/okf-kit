@@ -2,8 +2,9 @@
 Requirements and scenarios live here. The domain rules they enforce live in
 `.okf/features/<capability>.md` with stable ids.
 
-Where a requirement exists because of a business rule, add `Implements: BR-n`
+Where a requirement exists because of a business rule, add `Implements: BR-<slug>`
 under the requirement text and CITE the id rather than copying the rule's wording.
+A rule from another capability's entry is cited as `other-capability/BR-<slug>`.
 Two copies of the same sentence in two files drift; a citation cannot.
 
 Scenarios MUST use exactly four hashtags (`####`) - three fails silently.
@@ -18,7 +19,7 @@ Scenarios MUST use exactly four hashtags (`####`) - three fails silently.
 ### Requirement: <!-- requirement name -->
 <!-- requirement text, SHALL/MUST for normative statements -->
 
-Implements: <!-- BR-n, or omit if this requirement is not governed by a domain rule -->
+Implements: <!-- BR-<slug>, or omit if this requirement is not governed by a domain rule -->
 
 #### Scenario: <!-- scenario name -->
 - **WHEN** <!-- condition -->
