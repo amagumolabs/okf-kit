@@ -1,127 +1,59 @@
 # okf-kit
 
-The team's OpenSpec + OKF workflow, packaged so every project gets the same one
-and can be upgraded without hand-copying files.
+The team's OpenSpec + OKF workflow: a set of plain files that keeps three layers
+of every feature in sync - the OKF knowledge entry, the OpenSpec spec, and the
+code with its tests. There is no CLI and nothing to install beyond OpenSpec.
 
-- **OpenSpec** carries change work: proposal, specs, tasks.
-- **OKF** (`.okf/`) carries durable domain knowledge: terms, business rules with
-  stable `BR-n` ids, actors, permissions, entities, workflows.
-- Two gates: an OKF entry must exist before implementation, and so must a
-  test-plan.
+- **OKF** (`.okf/`) holds durable domain knowledge: terms, actors, permissions,
+  entities, workflows, and business rules with stable `BR-n` ids.
+- **OpenSpec** (`openspec/`) holds requirements and scenarios, and the change
+  workflow that edits them.
+- **`AGENTS.md`** tells the agent which route a request takes - Direct, Quick
+  fix, Rule tweak, or the full OpenSpec workflow - so a small change stays
+  small and only a change to the knowledge goes through a proposal.
 
-Start with `docs/workflow-at-a-glance.md` for the diagrams: how a change and a
-knowledge entry move together from explore to archive. Then
-`docs/okf-kit-overview.md` for the team-facing picture (what the kit solves vs
-using OpenSpec + OKF traditionally, plus the implement workflow).
-Read `docs/openspec-okf-workflow.md` for mechanics and what it does *not*
-guarantee. Read `.okf/README.md` for what belongs in a knowledge entry.
+Read `docs/workflow-at-a-glance.md` for the picture, and `.okf/README.md` for
+what belongs in a knowledge entry.
 
-## Install into a project
-
-Order matters: `openspec init` writes its own `openspec/config.yaml`, so it goes
-first and `okf init` replaces that file afterwards.
+## Use it in a project
 
 ```bash
-# 1. OpenSpec itself, plus the skill files for the tools your team uses
-npx openspec init --tools claude,codex,cursor
+# 1. OpenSpec, at the version the generated skills are made for
+npm i -g @fission-ai/openspec@1.14.3
+openspec init --tools claude,codex,cursor
 
-# 2. This kit (pin a tag - the version is what makes upgrades traceable)
-npm i -D github:amagumolabs/okf-kit#v0.7.0
-
-# 3. Install the schema, templates, and the CLAUDE.md / AGENTS.md addendum
-npx okf init
-
-# 4. Generate the index and check the result
-npx okf index && npx okf check
+# 2. Copy the workflow files from this repository
+cp -R <okf-kit>/AGENTS.md <okf-kit>/CLAUDE.md <okf-kit>/.okf <project>/
+cp -R <okf-kit>/openspec/schemas <project>/openspec/
+cp <okf-kit>/openspec/config.yaml <project>/openspec/config.yaml
 ```
 
-`.okf/` targets **Open Knowledge Format v0.2**. `.okf/profile.md` records every
-place this kit narrows or extends that specification, and what it deliberately
-does not claim.
+Then fill in **Project commands** at the end of `AGENTS.md` (test, lint,
+typecheck) and commit everything, including the files `openspec init`
+generated. Teammates need only OpenSpec at the same version; nothing else is
+installed.
 
-`openspec update` regenerates the tool skill files from OpenSpec's own templates.
-It leaves the `okf-kit` block in `CLAUDE.md` / `AGENTS.md` alone - verified, not
-assumed.
+If the project already has an `AGENTS.md` or `CLAUDE.md`, merge rather than
+overwrite. `CLAUDE.md` only needs the line `@AGENTS.md`.
 
-## Upgrade
+## What is in it
 
-```bash
-npm i -D github:amagumolabs/okf-kit#v0.7.0
-npx okf upgrade --dry-run   # see what would change
-npx okf upgrade
+```text
+AGENTS.md                                  # routes, naming, verification, self-check
+CLAUDE.md                                  # @AGENTS.md
+openspec/config.yaml                       # project context for every OpenSpec workflow
+openspec/schemas/okf-gated-feature/        # the full-route schema and its templates
+.okf/README.md                             # what belongs in an entry, what the states mean
+.okf/templates/                            # feature and decision templates
+.okf/index.md                              # one row per entry, kept current by hand
 ```
 
-Upgrade replaces kit-owned files, but only the ones your team has not edited. A
-file you changed is reported and left alone:
+## Upgrading OpenSpec
 
-```
-  MODIFIED LOCALLY  .okf/templates/feature.md.tmpl  -> skipped
-```
+`openspec update` regenerates the skill files under `.claude/`, `.agents/` and
+`.cursor/`; it never touches `AGENTS.md`, `config.yaml` or the schema. Bump the
+version in this README and in `AGENTS.md` together, so everyone moves at once.
+Before upgrading, run `openspec schema validate okf-gated-feature` with the new
+version.
 
-Diff it against the kit, fold in what you want, then re-run with `--force` - or
-keep your version and accept that it drifts. What upgrade decides from is
-`.okf/.okf-kit.json`, a manifest of content hashes written at install time.
-
-## What belongs to whom
-
-| Kit-owned (upgrade replaces) | Project-owned (never touched) |
-| --- | --- |
-| `openspec/schemas/okf-gated-feature/**` | `.okf/features/**`, `.okf/decisions/**` |
-| `openspec/config.yaml` | `.okf/index.md`, `.okf/log.md` (generated by `okf index`) |
-| `.okf/templates/**`, `.okf/README.md`, `.okf/profile.md` | everything in `CLAUDE.md` / `AGENTS.md` outside the markers |
-| the block between `<!-- okf-kit:start -->` and `<!-- okf-kit:end -->` | your code, tests, and every other file |
-
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `okf check` | Entries, pointers, rule ids, evidence, test statuses, index, debt ledger, kit version skew |
-| `okf check` (archive mode) | Also: every decision in `design.md` accounted for in the Decision Promotion table, by a resolving path under `.okf/decisions/` or a stated reason |
-| `okf check --archive <change-id>` | The stricter pre-archive set - run it before archiving |
-| `okf check --json` | Same findings, machine-readable |
-| `okf audit` | Report entries whose declared `code_paths` changed after they were verified. Reports only, never edits knowledge |
-| `okf index` | Regenerate `.okf/index.md` and `.okf/log.md` from entry frontmatter |
-| `okf index --check` | Fail if either is stale (for CI) |
-| `okf migrate` | Move entry frontmatter to the current kit shape. The only command that writes to `.okf/features/` and `.okf/decisions/`, so it is invoked deliberately rather than by `okf upgrade`. Never invents a `verified[]` attestation (`--dry-run`) |
-| `okf init` / `okf upgrade` | Install or update the kit in a project (`--dry-run`, `--force`) |
-
-Exit codes: `0` clean, `1` problems found, `2` bad usage.
-
-## CI
-
-Copy `.github/workflows/okf.yml` into the project, or add the three steps to an
-existing workflow:
-
-```yaml
-- run: npx okf index --check
-- run: npx okf check
-```
-
-`okf audit` belongs on a schedule, not on every commit. Drift accumulates over
-weeks, and a job that fails a pull request for something nobody in it caused is a
-job that gets deleted:
-
-```yaml
-on:
-  schedule:
-    - cron: '0 6 * * 1'   # Monday morning
-jobs:
-  drift:
-    steps:
-      - run: npx okf audit
-```
-
-CI is the backstop, not the gate: a developer who never runs `okf check` and
-never opens a PR can still start implementing behind three empty files. What CI
-guarantees is that it does not reach `main`.
-
-## Developing the kit
-
-```bash
-node test/run.mjs   # 133 fixture tests, no dependencies
-node bin/okf.mjs check
-```
-
-The kit develops against its own schema and templates - the payload `okf init`
-copies is the same set of files this repo uses - so it cannot ship something it
-does not itself run. Requires Node 18+ and nothing else.
+Set `DO_NOT_TRACK=1` to turn off OpenSpec's anonymous telemetry.

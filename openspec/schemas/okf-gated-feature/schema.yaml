@@ -1,5 +1,5 @@
 name: okf-gated-feature
-version: 5
+version: 6
 description: OpenSpec workflow with an OKF-linked knowledge gate and a test-first implementation gate
 artifacts:
   - id: okf-link
@@ -7,118 +7,62 @@ artifacts:
     description: Pointer table from this change to the durable OKF entries it touches
     template: okf-link.md
     instruction: |
-      This artifact is a pointer table, not a content draft. All durable knowledge
-      lives in exactly one place per capability:
-      `.okf/features/<capability-name>.md`. Never duplicate that content here.
+      This artifact is a pointer table, not a content draft. Durable knowledge
+      lives in exactly one place per capability: `.okf/features/<capability>.md`.
+      Never copy that content here.
 
-      NAMING - this is the rule that prevents duplicate entries. An OKF entry is
-      named after the CAPABILITY, never after the change. `add-user-auth`,
-      `fix-auth-mfa` and `improve-login` are three changes to one capability:
-      `user-auth`. Use the capability name that already exists under
-      `openspec/specs/<capability>/`, or the one this change will introduce.
+      NAMING - an entry is named after the CAPABILITY, never after the change.
+      `add-user-auth`, `fix-auth-mfa` and `improve-login` are three changes to
+      one capability: `user-auth`. Use the name under `openspec/specs/` or the one
+      this change introduces.
 
-      SCOPE FILTER - what belongs in an entry. An entry holds only knowledge that
-      outlives the change which introduced it. A field's validation message, a
-      form's layout, the shape of one endpoint's payload - these do not belong
-      here. Requirement wording belongs in the spec; structural choices belong
-      in the design; a one-change payload shape belongs in neither, because it
-      was never knowledge. The test is not whether it is true or
-      correct - everything written is true at the moment it is written. Ask:
-      would a second change to this capability still need it? If not, leave it
-      out.
+      SCOPE - an entry holds only knowledge a second change to the capability
+      would still need. A validation message, a form layout, one endpoint's
+      payload shape do not belong in it.
 
       Steps:
 
-      1. Work out which capabilities this change touches. This artifact is
-         created BEFORE proposal.md, so at this point the list is your best read
-         of the request - you will refresh this file once proposal.md settles the
-         Capabilities section, and the proposal step will reconcile the two.
+      1. List the capabilities this change touches. This runs before
+         proposal.md exists, so it is your best read of the request; the proposal
+         step reconciles the two.
 
-      2. For each capability, search `.okf/index.md` and `.okf/features/` for an
-         existing entry. Prefer enriching an existing entry over creating a
-         near-duplicate. Only ask the user to disambiguate when there are
-         genuinely several plausible candidates.
+      2. For each, search `.okf/index.md` and `.okf/features/` for an existing
+         entry. Enrich rather than create a near-duplicate; ask the user only
+         when several candidates are genuinely plausible.
 
-      3. If no entry exists, create `.okf/features/<capability-name>.md` from
-         `.okf/templates/feature.md.tmpl`, and delete every section of that
-         template you have no real content for - an empty heading is not a
-         reservation for later work, it is a section nobody filled. Set
-         `verification_state: unverified` and write no `verified` key at all - an
-         entry nobody vouches for must read as unverified to any consumer. Add
-         this change id to `pending_changes` and `linked_changes`, and record
-         provenance in `sources` (the PRD/spec path, the explore session, or a
-         short quote of the original request); reference a change as
-         `change:<change-id>` and never as a path under `openspec/changes/`, which
-         is renamed at archive time and leaves the reference dangling. Leave
-         `code_paths` empty - the verification pass fills it. Set
-         `criticality: high` only for auth, permissions, money, or customer data.
+      3. No entry yet: create one from `.okf/templates/feature.md.tmpl`. Delete
+         every section you have no real content for. Set
+         `verification_state: unverified`, add this change id to
+         `pending_changes` and `linked_changes`, and record the source in
+         `sources` (a PRD path, or a short quote of the request). Reference a
+         change as `change:<change-id>`, never as a path under
+         `openspec/changes/`, which moves at archive. Leave `code_paths` empty.
+         Set `criticality: high` only for auth, permissions, money, or customer
+         data.
 
-      4. If an entry exists, enrich it in place: add what this change contributes,
-         do not overwrite unrelated sections, do not invent requirements. Append
-         this change id to `pending_changes` and `linked_changes`. Do NOT touch
-         `verification_state`, `verified` or `verified_at` - only the
-         verification pass moves those. An
-         entry can legitimately stay `verified` while carrying a pending change;
-         that is exactly what `pending_changes` is for.
+      4. Entry exists: enrich it in place, append this change id to
+         `pending_changes` and `linked_changes`. Do not touch
+         `verification_state` or `verified_at` - only the verification pass
+         moves those. An entry may stay `verified` while a change is pending.
 
-      5. Give every business rule you add a new id continuing the file's existing
-         counter (`BR-n`). Never renumber, never reuse. A rule that no longer
-         applies stays in place marked `(deprecated in <change-id>)`, because
-         archived specs and tests still cite it.
+      5. Every new business rule gets the next `BR-n` in that file. Never
+         renumber, never reuse. A rule that no longer applies stays, marked
+         `(deprecated in <change-id>)`.
 
-      6. A capability with no domain knowledge to record (build tooling, log
-         format, dependency bump) still gets a row in this table, with
+      6. A capability with no domain knowledge (build tooling, a log format, a
+         dependency bump) still gets a row, with
          `no domain knowledge - <specific reason>` instead of a path. Do not
-         create an empty entry to satisfy the table.
+         create an empty entry.
 
-      7. Write the OKF Link table: one row per capability, mirroring each entry's
-         `verification_state` at the time of writing.
+      7. Optional: if a decision under `.okf/decisions/` or another entry
+         constrains this change, list it under Related Knowledge with what to
+         read in it. Files listed there are read, not modified; a file that
+         turns out to need editing moves up into the OKF Link table.
 
-      8. Scan for the READ SET and write the Related Knowledge table. What a
-         change must read is wider than what it writes: a decision recorded under
-         one capability binds the next change to a neighbour, and two entries
-         whose code paths overlap can be made to contradict each other by an edit
-         that looks local from inside either one.
+      8. Add or update the entry's row in `.okf/index.md`.
 
-         Derive candidates from what the bundle already records - never from a
-         relationship field maintained by hand, which decays silently:
-
-         - a decision under `.okf/decisions/` whose `affects_features` names a
-           capability in the OKF Link table. `.okf/index.md` lists them with what
-           each affects, so start there
-         - a feature entry whose `code_paths` intersect those of an entry in the
-           OKF Link table
-
-         Then read each candidate far enough to say why it is related and what to
-         read in it. A candidate is a candidate and not a verdict: one you judge
-         irrelevant keeps its row with the reason, because a dismissal in writing
-         is a decision and an omission is indistinguishable from not having
-         looked.
-
-         The two signals are a floor, not the definition of relatedness. A file
-         you reached by judgement is listed on the same terms, with `judgement`
-         as its signal - a derivation that could only ever produce what it
-         computed would teach you to stop looking past it.
-
-         Every row names why the file is related and which `BR-n` or section to
-         read. A row naming only a path trades one unbounded read for another.
-
-         If nothing bears on this change, write `none - <specific reason>` in the
-         File column. A blank table and "the scan found nothing" are different
-         claims, and only one of them is an answer.
-
-         Nothing in this table carries an obligation: no `pending_changes`, no
-         Rule Evidence row, no attestation. A file that turns out to need editing
-         moves up into the OKF Link table, and nothing is ever in both.
-
-         You will run this scan once more, at the proposal's reconcile step,
-         against the Capabilities section once it settles.
-
-      9. Update `.okf/index.md` (Features table) for any new entry.
-
-      Do not invent requirements. Inferred details go under Assumptions, and
-      unresolved blockers under Open Questions, in the durable entry - never in
-      this stub.
+      Inferred details go under Assumptions and unresolved blockers under Open
+      Questions in the entry itself - never in this file.
     requires: []
   - id: proposal
     generates: proposal.md
@@ -127,51 +71,32 @@ artifacts:
     instruction: |
       Create the proposal that establishes WHY this change is needed.
 
-      Read the OKF entries listed in okf-link.md FIRST. They are the primary
-      knowledge source for this change, ahead of anything said in conversation.
-      Where the proposal relies on a business rule, cite its id (`BR-3`) rather
-      than restating the rule in your own words. A question the entry already answers
-      is not asked of the user - cite the rule id and move on. The
-      entry's Assumptions and Open Questions are what generate a question: ask
-      those, and do not assume an answer the entry left open.
+      Read the OKF entries listed in okf-link.md FIRST - they come ahead of
+      anything said in conversation. Cite a rule by its id (`BR-3`) instead of
+      restating it. Do not ask the user a question the entry already answers;
+      its Assumptions and Open Questions are what should generate questions.
 
       Sections:
 
-      - **Why**: 1-2 sentences on the problem or opportunity. Why now?
-      - **What Changes**: bullet list. Be specific about new capabilities,
-        modifications, and removals. Mark breaking changes with **BREAKING**.
+      - **Why**: 1-2 sentences on the problem or opportunity.
+      - **What Changes**: specific bullets. Mark breaking changes **BREAKING**.
       - **Capabilities**:
         - **New Capabilities**: each becomes `specs/<name>/spec.md` and
           `.okf/features/<name>.md`. Kebab-case.
         - **Modified Capabilities**: existing capabilities whose REQUIREMENTS
-          change (not just implementation). Each needs a delta spec. Check
-          `openspec/specs/` for existing names. Leave empty if no requirement
-          changes.
+          change. Each needs a delta spec. Leave empty if none.
       - **Scope And Non-Goals**
-      - **Acceptance Criteria**: testable, each will map to a test case.
+      - **Acceptance Criteria**: testable; each maps to a test case.
       - **Risks**
       - **Impact**: affected code, APIs, dependencies, systems.
 
-      RECONCILE okf-link.md before you finish. The Capabilities section and the
-      OKF Link table must list exactly the same capabilities. okf-link.md was
-      written before this file existed, so it is normally the one that needs
-      fixing: create or enrich the missing entries following the okf-link
-      instruction, then add their rows.
+      Before finishing, make okf-link.md list exactly the capabilities in the
+      Capabilities section - create or enrich the missing entries as the
+      okf-link instruction says. Then enrich each linked entry with the durable
+      knowledge this proposal surfaced (scope, actors, new `BR-n` rules), so it
+      is not left a bare stub.
 
-      Then run the related scan a second time, against the Capabilities section
-      now that it has settled, and refresh the Related Knowledge table. This is
-      the last point at which the write set moves, so it is the last point at
-      which everything derived from it can be wrong. It is also the second and
-      final scan - no later artifact re-derives the read set, they read what this
-      one records.
-
-      Then enrich each linked OKF entry with the durable knowledge this proposal
-      surfaced - scope, actors, business rules (new `BR-n` ids), risks. Do not
-      leave an entry as a bare stub once a proposal exists. Anything you inferred
-      rather than sourced goes under Assumptions in the entry, and anything the
-      proposal depends on but cannot confirm goes under Open Questions.
-
-      Keep it to 1-2 pages. Why, not how - implementation belongs in design.md.
+      Keep it to 1-2 pages. Why, not how.
     requires:
       - okf-link
   - id: specs
@@ -181,46 +106,33 @@ artifacts:
     instruction: |
       Create specification files that define WHAT the system should do.
 
-      One spec file per capability listed in the proposal's Capabilities section.
-      - New capabilities: the exact kebab-case name from the proposal
-        (`specs/<capability>/spec.md`).
-      - Modified capabilities: the existing folder name from
-        `openspec/specs/<capability>/`.
+      One spec file per capability in the proposal's Capabilities section:
+      `specs/<capability>/spec.md`, using the existing folder name for a
+      modified capability.
 
-      Cite, do not copy. Where a requirement exists because of a domain rule in
-      the linked OKF entry, add `Implements: BR-n` under the requirement text and
-      leave the rule's wording in the OKF entry only. Two copies of the same
-      sentence in two files drift apart; a citation cannot. If you find yourself
-      wanting to restate a rule here, that is the signal the rule belongs in the
-      OKF entry with an id.
-
-      If writing the spec reveals a rule that is not in the OKF entry, add it
-      there first (with a new `BR-n`), then cite it.
+      Cite, do not copy. Where a requirement exists because of a rule in the
+      linked OKF entry, add `Implements: BR-n` under the requirement text and
+      keep the rule's wording in the entry only. A rule you find while writing
+      the spec that is not in the entry goes into the entry first, with a new
+      `BR-n`, and is then cited.
 
       Delta operations (use `##` headers):
-      - **ADDED Requirements**: new capabilities
-      - **MODIFIED Requirements**: changed behavior - MUST include the full
-        updated content
+      - **ADDED Requirements**
+      - **MODIFIED Requirements**: MUST include the full updated requirement
       - **REMOVED Requirements**: MUST include **Reason** and **Migration**
-      - **RENAMED Requirements**: name changes only, FROM:/TO: format
+      - **RENAMED Requirements**: FROM:/TO: format
 
       Format:
-      - Each requirement: `### Requirement: <name>` followed by description
-      - SHALL/MUST for normative requirements (avoid should/may)
-      - Each scenario: `#### Scenario: <name>` with WHEN/THEN
-      - **CRITICAL**: scenarios MUST use exactly four hashtags (`####`). Three
-        hashtags or bullets fail silently.
-      - Every requirement MUST have at least one scenario.
+      - `### Requirement: <name>` followed by the requirement text, SHALL/MUST
+      - `#### Scenario: <name>` with WHEN/THEN - exactly four hashtags; three
+        fail silently
+      - every requirement has at least one scenario
 
-      MODIFIED workflow:
-      1. Locate the existing requirement in `openspec/specs/<capability>/spec.md`
-      2. Copy the ENTIRE requirement block (from `### Requirement:` through all
-         scenarios)
-      3. Paste under `## MODIFIED Requirements` and edit
-      4. Header text must match exactly (whitespace-insensitive)
-
-      Common pitfall: MODIFIED with partial content loses detail at archive time.
-      Adding new concerns without changing existing behavior? Use ADDED.
+      MODIFIED: copy the ENTIRE existing requirement block from
+      `openspec/specs/<capability>/spec.md` (heading through all scenarios),
+      paste it under `## MODIFIED Requirements`, then edit. Partial content loses
+      detail at archive. Adding a concern without changing existing behavior is
+      ADDED, not MODIFIED.
 
       Example:
 
@@ -235,15 +147,9 @@ artifacts:
       #### Scenario: Successful export
       - **WHEN** user clicks "Export" button
       - **THEN** system downloads a CSV file with all user data
-
-      ## REMOVED Requirements
-
-      ### Requirement: Legacy export
-      **Reason**: Replaced by new export system
-      **Migration**: Use new export endpoint at /api/v2/export
       ```
 
-      Every scenario is a potential test case - write them so they can be one.
+      Write every scenario so it can become a test case.
     requires:
       - proposal
   - id: design
@@ -251,40 +157,26 @@ artifacts:
     description: Technical design document with implementation details
     template: design.md
     instruction: |
-      Explain HOW to implement the change - but only if the change warrants it.
+      Explain HOW to implement the change - only if the change warrants it.
 
       Write a real design if any apply:
-      - cross-cutting change (multiple services/modules) or a new architectural
-        pattern
+      - cross-cutting change or a new architectural pattern
       - a new external dependency, or significant data model changes
       - security, performance, or migration complexity
       - ambiguity worth settling before code is written
 
-      If NONE apply, this file still gets created, containing exactly one line:
+      If none apply, the file contains exactly one line and nothing else:
 
           Not required because <specific reason>.
 
-      Delete the template's sections in that case. This is the same rule the rest
-      of the schema follows - never skip a file, always state the reason - so the
-      record shows the question was considered rather than forgotten, and propose
-      keeps moving without a detour. "Not required because it is small" is not a
-      reason; name what makes it small.
+      "Because it is small" is not a reason; name what makes it small.
 
-      Sections when a design IS needed:
-      - **Context**: background, current state, constraints, stakeholders
-      - **Goals / Non-Goals**
-      - **Decisions**: key choices with rationale (why X over Y), alternatives
-        considered
-      - **Risks / Trade-offs**: [Risk] -> Mitigation
-      - **Migration Plan**: deploy steps, rollback (if applicable)
-      - **Open Questions**
+      Sections when a design is needed: Context, Goals / Non-Goals, Decisions
+      (with the alternatives considered), Risks / Trade-offs, Migration Plan,
+      Open Questions.
 
-      Architecture and approach, not line-by-line implementation. Reference the
-      proposal for motivation and the specs for requirements.
-
-      Flag any decision here that will still matter after this change ships - the
-      verification pass promotes it to `.okf/decisions/`, because archiving buries
-      this file under `openspec/changes/archive/`.
+      Mark any decision that will still matter after this change ships - the
+      verification pass promotes it to `.okf/decisions/`.
     requires:
       - proposal
   - id: test-cases
@@ -292,68 +184,32 @@ artifacts:
     description: Test case matrix before implementation
     template: test-cases.md
     instruction: |
-      Derive test cases from the OKF entries linked in okf-link.md, from
-      proposal.md, and from the specs. Cover unit, integration, API E2E, and
-      browser E2E where relevant, plus negative and boundary cases.
+      Derive test cases from the linked OKF entries, the proposal and the specs.
+      Cover unit, integration, and E2E levels where relevant, plus negative and
+      boundary cases.
 
       Three mappings must be complete:
-      - every acceptance criterion in the proposal maps to at least one test case
+      - every acceptance criterion maps to at least one test case
       - every spec scenario maps to at least one test case
-      - every `BR-n` in the linked entries that this change touches maps to at
-        least one test case
+      - every `BR-n` this change touches maps to at least one test case
 
-      Anything genuinely not applicable goes in the Not Applicable table with a
-      specific reason and an approver - never an empty cell and never the bare
-      words "not applicable".
+      A level that does not apply goes in Not Applicable with a specific reason.
 
-      The Negative And Boundary Cases table ships its Class column seeded, and
-      those seeds are the point of the table. Answer for each of the six:
+      For negative and boundary cases, consider at least: absence (null, empty,
+      missing record), numeric edges (0, 1, -1, the limit and one past it),
+      duplication (a repeated submission), staleness, authorisation (an actor
+      who may not act), and scope isolation (data crossing a tenant or user
+      boundary). Write the ones that apply; skip the rest.
 
-      - Absence - null, an empty string, whitespace, a missing field, no record
-      - Numeric edge - 0, 1, -1, the limit itself and one past it
-      - Duplication - the same submission twice, a repeated id, a replayed request
-      - Staleness - a cached or re-read value that changed underneath
-      - Authorisation - the action attempted by an actor who may not perform it
-      - Scope isolation - data reachable across a boundary it must not cross:
-        tenant, workspace, project, or in a single-actor system the user
+      A change with a user interface covers the loading, error, empty and
+      populated states, and checks that failure is shown to the user.
 
-      A class this change genuinely does not touch is discharged with a stated
-      reason in the Not Applicable table, rather than deleting its row. The
-      distinction is the whole value of naming them: "this feature has no tenant
-      boundary" is a decision, and a deleted row is indistinguishable from nobody
-      having considered tenants. Add classes the domain has beyond these six.
+      Cite the `BR-n` in the Source column wherever a case exists because of a
+      rule - that is what makes BR-n -> spec -> test -> code traceable.
 
-      `okf check` warns when this table has no rows at all while the specs carry
-      scenarios, and does nothing else here. Whether six classes were genuinely
-      considered is not observable from the file, so the checker never errors on
-      it and never counts classes - six rows written to satisfy a gate would be
-      worse than the silence it replaced.
-
-      A change with a user interface answers for all four render states -
-      loading, error, empty, populated - and for whether the interface reports
-      failure to the user rather than only to the console. Three of the four are
-      what an author testing their own feature never sees. A change with no
-      interface discharges the section in Not Applicable, as any other
-      inapplicable level is.
-
-      Where a scenario produces something a human can inspect - a screenshot, a
-      recording, a captured page - the test-plan's Artifacts column says where it
-      lands. Name the destination, never the tool that produced it.
-
-      Cite the `BR-n` id in the Source column wherever a case exists because of a
-      business rule. That citation is what makes the chain
-      BR-n -> spec -> test -> code checkable rather than a matter of opinion.
-
-      Tests express feature behavior, never implementation structure. Prefer
-      public contracts and service boundaries over private internals - a test
-      bound to internals has to be rewritten by the very change it was meant to
-      guard.
-
-      Assertions run on real behavior, never on mock call counts. "The collaborator
-      was called three times" is falsified by editing the mock, not by any change
-      to the production code, so it survives every real defect it was written to
-      catch. The same test states what the caller observed instead, and then it
-      has a falsifier to name in test-plan.md.
+      Tests express behavior through public contracts, not implementation
+      structure, and assert on what the caller observes, never on mock call
+      counts.
     requires:
       - specs
   - id: test-plan
@@ -363,89 +219,46 @@ artifacts:
     instruction: |
       Map test cases to concrete test files, test names, fixtures, and commands.
 
-      This file must always exist before implementation - it is one of the two
-      mandatory gates in this schema (the other is okf-link). If the change is
-      genuinely not testable (a documentation or config rename with no observable
-      behavior), still create it and write "Not Applicable because <specific
-      reason>" under Test Strategy. Never use that escape to avoid testing
-      behavior that could be tested.
+      This file must exist before implementation - it is a hard gate. If the
+      change is genuinely not testable (a documentation or config rename with no
+      observable behavior), still create it and write
+      "Not Applicable because <specific reason>" under Test Strategy. Never use
+      that to avoid testing behavior that could be tested.
 
-      Use exactly four status values, and no others:
+      Test status uses exactly four values:
       - `planned`  - a row here only; no test file yet
-      - `skeleton` - the file exists, declared with the runner's own pending
-                     mechanism (`it.todo`, `test.todo`, `test.fixme`). It compiles
-                     and lints clean because it has no body
-      - `failing`  - executable, and fails on its ASSERTION rather than on a
-                     missing import or a type error. This is the real red state
+      - `skeleton` - the file exists, declared with the runner's pending
+                     mechanism (`it.todo`, `test.todo`, `test.fixme`)
+      - `failing`  - executable, failing on its ASSERTION, not on a missing
+                     import or a type error
       - `passing`  - green
 
-      Plan the levels differently, on purpose:
+      Test-first, by level:
 
-      - **Unit tests for business rules** must reach `failing` before their
-        implementation task starts. To get there without lint and type noise,
-        list the contract stubs needed in the Contract Stubs table: types,
-        signatures, a route returning 501, with bodies that only
-        `throw new Error('not implemented')`. A stub MUST NOT contain logic - if
-        behavior leaks into a stub, test-first is already lost at step one.
-        Initial Status records the actual assertion failure
-        (`failing: expected 403, got 200`), not the bare word "failing". A row
-        that comes out green instead answers in the same shape -
-        `passing: the rule already held, this test locks it against regression`.
-        Green before the implementation existed is either that or a test that
-        asserts nothing this change introduces, and the bare word does not say
-        which, so it is read as the second.
+      - **Unit tests for business rules** reach `failing` before their
+        implementation task starts. Contract stubs (types, signatures, a route
+        returning 501, bodies that only `throw new Error('not implemented')`)
+        let them compile; a stub MUST NOT contain logic. Initial Status records
+        the actual failure, e.g. `failing: expected 403, got 200`.
 
-        Each row also names its falsifier: the production change that would make
-        that test fail, in the Falsified By column. Answer with a change to the
-        code, not with a restatement of the test. A test whose expected value is
-        computed the way the code computes it has no answer here - it passes by
-        construction and can never report a disagreement, which is the one thing
-        a test written first exists to do. Work the answer out before writing the
-        test; a row with no answer is redesigned rather than filled in.
+      - **Integration and E2E tests** are written before implementation too, and
+        may start as `skeleton` while their harness is not ready. A test file
+        first created after the code it covers can no longer refute it.
 
-        All three records - the assertion message, the reason behind a green
-        start, the falsifier - are warnings while the change is in flight and
-        errors under `okf check --archive`. A plan under construction is told,
-        not blocked; nothing archives without them.
+      `Initial Status` is where a row stood when implementation started;
+      `Status` is where it stands now. Move `Status`, never rewrite
+      `Initial Status` - it is the record that the tests came first.
 
-      - **Integration and E2E tests** are authored before implementation too, and
-        may start as `skeleton` when the fixtures, server, seeded database, or
-        browser harness are not ready yet. Deferring the harness is legitimate;
-        deferring the file is not, because a test file first created after the
-        code it covers was shaped by that code and can no longer refute it.
-        Every row left at `skeleton` or `planned` when archive readiness is
-        assessed must appear in Known Gaps with a reason and an owner - a
-        `skeleton` that quietly survives into the archive is an untested
-        requirement wearing a test's name.
+      Every row still `skeleton` or `planned` at archive goes in Known Gaps with
+      a reason and an owner.
 
-      Both of these tables carry two status columns, and they mean different
-      things: `Initial Status` is where the row stood when implementation
-      started, `Status` is where it stands now. Fill both. Move `Status` as the
-      work progresses and never rewrite `Initial Status` to match it - that
-      column is the only evidence the plan carries that the tests predate the
-      code, and a table where the two agree everywhere is exactly what a
-      test-last change produces. An unfilled `Initial Status` is reported.
+      Take the test and lint commands from the Project commands section of
+      `AGENTS.md`. If it is missing, derive them from the project manifest,
+      confirm with the user, and add them there.
 
-      Fill the lint and type check commands under Commands from the project's own
-      declaration in `AGENTS.md`, OUTSIDE the okf-kit markers. If the project has
-      not declared them, derive them from its manifest - the scripts in
-      `package.json`, the targets in a `Makefile`, `pyproject.toml`,
-      `Cargo.toml`, `build.gradle` - confirm them with the user, and write them
-      into that region of `AGENTS.md` so the next change inherits the answer.
-
-      Deriving them afresh every change is the thing to avoid. An agent that
-      cannot find a linter in thirty seconds writes "Not Applicable", and nothing
-      then distinguishes that from a project which genuinely has none. A
-      declaration written once is visible to review; a judgement re-made silently
-      per change is not. The kit never parses that declaration - it is prose for
-      the next agent, not configuration.
-
-      Cite the `BR-n` id for each pre-implementation unit test so the trail from
-      rule to code stays intact.
-
-      Pre-written tests are not changed to match the implementation. A test may
-      change only when the OKF entry or spec changed first, or when the test has
-      a mechanical bug. Record any such change in the table provided.
+      A pre-written test changes only when the OKF entry or spec changed first,
+      or when it has a mechanical defect. Record either case in the Test Changes
+      table.
     requires:
       - test-cases
   - id: tasks
@@ -453,57 +266,25 @@ artifacts:
     description: Implementation checklist with trackable tasks
     template: tasks.md
     instruction: |
-      Break the work down into tasks.
+      Break the work into tasks, following the template's group order: Contract
+      Stubs, Pre-Implementation Unit Tests, Integration And E2E Skeletons,
+      Implementation, Integration Tests, E2E Tests, Verification And OKF Pass.
+      Rename, split, or drop groups to fit the change; do not reorder them, and
+      do not fold test tasks into implementation tasks.
 
-      **Follow the template's group order.** It encodes the workflow, and these
-      are its groups by name: Contract Stubs, then Pre-Implementation Unit Tests,
-      then Integration And E2E Skeletons, then Implementation, then Integration
-      Tests, then E2E Tests, then Verification And OKF Pass, then Archive
-      Readiness. Rename and split groups to fit the change; do not reorder them,
-      and do not fold test tasks into implementation tasks.
+      Every test file is created before the Implementation group. The groups
+      after it only promote files that already exist.
 
-      Every test file the change plans is created before the implementation
-      group - unit tests in the red state, integration and E2E tests at least as
-      skeletons. The groups after implementation only promote files that already
-      exist. Implementation MUST NOT be the step that first creates a test file:
-      a test written against finished code was shaped by it, and can only
-      describe it. If a level's harness is not ready, the skeleton is still
-      written and stays `skeleton` until Known Gaps claims it with an owner.
+      When code and a pre-written test disagree, the code is wrong by default.
+      When the rule itself turns out wrong, repair in this order: the OKF entry,
+      the spec, the Test Changes row in test-plan.md, the test, the code.
 
-      Through the implementation group the tests are fixed and the code moves.
-      When the two disagree, the default is that the code is wrong - that
-      disagreement is the entire output of a pre-written test, and editing the
-      test to end it discards the only finding it was ever going to produce.
+      **IMPORTANT**: every task is a checkbox `- [ ] X.Y <description>` - apply
+      parses this format to track progress.
 
-      When the rule itself turns out to be wrong, the order of repair is fixed
-      and no step may be skipped or reordered: the OKF entry, then the spec that
-      cites it, then the row in test-plan.md recording the change, then the test,
-      then the code. Reversing it lets the implementation define the domain,
-      which is the failure the knowledge base exists to prevent. The only other
-      admissible reason to touch a pre-written test is a mechanical defect -
-      wrong fixture, typo, bad assertion syntax - which leaves what the test
-      asserts unchanged. Both cases are recorded in the test-plan table, and that
-      table is checked: a row states which test changed and either the citation
-      that resolves or the defect it names.
-
-      **IMPORTANT**: every task MUST be a checkbox `- [ ] X.Y <description>`.
-      Apply parses this format to track progress - anything else is invisible.
-
-      Guidelines:
-      - Group related tasks under `##` numbered headings
-      - Tasks small enough to finish in one session
-      - Order by dependency within a group
-      - Each task verifiable: you can tell when it is done
-
-      The verification group is not boilerplate - it must contain the concrete
-      work of re-checking each linked OKF entry against the code that was
-      written, filling the Rule Evidence table with real `file:line` references,
-      setting `verified` / `verified_at` / `code_paths`, and removing this change
-      id from `pending_changes`. Drop a group only if it genuinely does not apply,
-      and say why in test-plan.md rather than leaving an empty group behind.
-
-      Reference the specs for what to build, the design for how, and the linked
-      OKF entries for what the domain actually means.
+      The verification group is concrete work, not boilerplate: evidence for
+      each `BR-n`, entry frontmatter updated, this change id removed from
+      `pending_changes`.
     requires:
       - specs
       - design
@@ -513,144 +294,48 @@ artifacts:
     description: Final verification evidence, including the OKF verification pass
     template: verification.md
     instruction: |
-      Record exact commands, real results, failures, skipped checks, and honest
-      proof boundaries. Cover OpenSpec validation, unit, integration, and E2E
-      tests, plus archive readiness.
+      Record the commands actually run and their real results, including what
+      was skipped and why: OpenSpec validation, tests at each level, lint.
 
-      Then run the OKF verification pass. This is the step that decides whether
-      the knowledge base can be trusted, so a checkbox is not evidence.
+      Then run the OKF verification pass - the step that decides whether the
+      knowledge can be trusted:
 
-      1. Read each `.okf` entry listed in okf-link.md's OKF Link table, and each
-         file listed in its Related Knowledge table. The second list is the read
-         set: files this change is planned against and must not modify. You will
-         need them in step 3, and this is the last pass that gets to notice.
+      1. Read each entry in okf-link.md's OKF Link table, and anything listed
+         under Related Knowledge.
 
-      2. Fill the Rule Evidence table: one row per `BR-n` this change touches,
-         each with a real reference - `path/to/file.ts:120`, or the name of the
-         test that protects the rule. You wrote the implementation, so you are
-         not a neutral judge of it: go and read the code rather than recalling
-         what you intended.
+      2. Fill Rule Evidence: one row per `BR-n` this change touches, with a real
+         `path/to/file.ts:120` or the name of the test that protects it. You
+         wrote the code, so read it rather than recalling what you intended.
 
-      3. Assign a verdict per row and act on it:
-         - `match`    - code does what the rule says. Nothing to do.
-         - `okf-gap`  - the entry was missing or stale, the code is right and its
-                        intent is clear. Update the entry directly, no need to
-                        ask, and say what changed.
-         - `code-gap` - the entry is right, the code is wrong or incomplete. This
-                        is a defect. Do NOT "sync" the entry down to match the
-                        code - that would make the knowledge base agree with
-                        every bug it was created to catch. Record it under Known
-                        Gaps and fix the code.
-         - `conflict` - genuine semantic disagreement, or a fix that would change
-                        domain meaning for other features. Ask the user. Only
-                        this verdict may end in `needs-revision`, and only when
-                        nobody is available to decide.
+      3. Give each row a verdict and act on it:
+         - `match`    - nothing to do
+         - `okf-gap`  - the entry was stale, the code is right: update the entry
+                        and say what changed
+         - `code-gap` - the entry is right, the code is wrong: fix the code.
+                        Never edit the entry to agree with a bug
+         - `conflict` - genuine disagreement, or a fix that changes meaning for
+                        other features: ask the user. Only this may end in
+                        `needs-revision`
 
-         Before writing any `BR-n` edit, re-read the entries in the Related
-         Knowledge table and check the edit against them. An edit is correct
-         inside the entry it lands in and can still change what a neighbour
-         means - that is a `conflict`, and it goes to the user rather than being
-         applied as a local correction. The read set exists so that this check
-         does not depend on your remembering the neighbour unaided.
+      4. For each linked entry: set `verification_state` (`verified` or
+         `needs-revision`, never left `unverified`), set `verified_at` to today's
+         date, fill `code_paths` from the evidence, remove this change id from
+         `pending_changes`, and append a Verification History row. Remove
+         change-local detail that leaked into the entry.
 
-      4. Review the entry's Domain Terms, Data Entities, Permissions And Access
-         Control, and Workflows sections the same way. Correct staleness directly
-         in `.okf/features/<capability>.md` - never in a copy, never in this
-         change directory. Remove change-local detail that leaked in - a
-         validation message, a form's layout, a one-change payload shape - on
-         the same pass: if a second change would not still need it, it does not
-         belong.
+      5. Promote any decision in design.md that outlives this change to
+         `.okf/decisions/<YYYY-MM-DD>-<slug>.md` from
+         `.okf/templates/decision.md.tmpl`, or note why it is change-local.
 
-      5. For each linked entry: set `verification_state` (`verified` or
-         `needs-revision`, never left at `unverified`), set `verified_at`, fill
-         `code_paths` from the evidence you just gathered, remove this change id
-         from `pending_changes`, and append a row to the entry's Verification
-         History with concrete evidence.
+      6. Update `.okf/index.md` with each entry's new state.
 
-         Then write the specification's `verified` key - the attestation list
-         recording who vouches for the entry's CURRENT content:
+      7. Run `openspec validate <change-id>` and, for each capability this
+         change syncs into `openspec/specs/`, `openspec validate <capability>`.
 
-           verified:
-             - by: <producer>/<version>
-               at: <iso-8601-datetime>
+      8. Run the self-check in `AGENTS.md`.
 
-         REPLACE that list, never append to it across changes. It answers "who
-         vouches for what is in the file now", while the Verification History
-         table answers "how did this file get here" - two questions, not two
-         copies of one. On a `conflict` verdict, DELETE the key: nobody vouches
-         for content under revision, and leaving a stale attestation makes a
-         consumer read the entry as confirmed.
-
-         Never write a `human:<id>` actor yourself. Only the person named can
-         make that attestation true - stop and ask them to add it.
-
-      6. Promote any decision in design.md that outlives this change to
-         `.okf/decisions/<YYYY-MM-DD>-<slug>.md` using
-         `.okf/templates/decision.md.tmpl`. Archiving buries design.md where
-         nobody will find it.
-
-         The Decision Promotion table is ENFORCED by `okf check --archive`, not
-         advisory - the checkbox further down is not what discharges this step.
-         Every row must answer with one of exactly two things: a path under
-         `.okf/decisions/` that resolves, or a stated reason the decision is
-         change-local. A row with neither is an error, and so is a table left
-         empty while design.md has a Decisions section. Only the one-line
-         `Not required because <reason>.` form of design.md waives the table
-         entirely; a design that is empty or of any other shape still needs a row,
-         because an unreadable design must not waive a gate by accident.
-
-         Fewer rows than design.md has decisions is a warning, since counting
-         them is a heuristic. Take it as a prompt to name what you left out, not
-         as a row quota to fill.
-
-      7. Regenerate `.okf/index.md` and `.okf/log.md` with `okf index`. If any
-         entry ended at `needs-revision`, add
-         a row to the Needs Revision Ledger stating what a human must decide.
-
-      8. Record the outcome per capability in the Entry Outcome table.
-
-      9. Validate every capability spec this change syncs into
-         `openspec/specs/`, not just the change itself:
-         `openspec validate <capability> --strict`. A change can be valid while
-         the baseline spec assembled from it is not - a delta spec needs neither
-         `## Purpose` nor `## Requirements`, and a baseline spec is rejected
-         without them. Validating only the change leaves the broken file behind
-         after the change directory is archived.
-
-      10. Record provenance by change id, not by path. A `sources` entry pointing
-         at `openspec/changes/<id>/design.md` dangles the moment the change is
-         archived and the directory is renamed. Write `change:<change-id>`
-         instead, and reserve paths for files that do not move (a PRD, a spec
-         under `openspec/specs/`).
-
-      11. Fill the Static Analysis table. It is ENFORCED by
-         `okf check --archive`, which reads the Result column - a green test
-         suite is not evidence that the code lints or type-checks, because tests
-         and static analysis fail on disjoint defect classes.
-
-         Lint and Typecheck are required rows. A project that runs neither keeps
-         the row and answers `Not Applicable because <specific reason>`; deleting
-         it makes "this project has no type checker" indistinguishable from
-         "nobody thought about it". Further rows are welcome and unconstrained.
-
-         Check names the category, Command names what this project actually runs,
-         taken from the declaration in `AGENTS.md` outside the okf-kit markers.
-         Paste the real outcome - the kit reads what you report and never runs it,
-         which is a deliberate boundary: a validator that executes commands out of
-         an arbitrary repository is a different kind of tool, and CI already runs
-         them. The value here is that the claim sits where a reviewer can compare
-         it against CI.
-
-      12. Run `okf check --archive <change-id>` and record the result. It verifies
-         mechanically what this instruction asks for in prose: that every pointer
-         resolves, that no placeholder survived, that every cited `BR-n` has
-         evidence, that `pending_changes` no longer holds this change, and that no
-         `skeleton` test is being archived without an owner. Fix what it reports
-         rather than explaining it away.
-
-      An entry whose `pending_changes` still contains this change id after
-      archive is the exact failure this workflow exists to prevent. Treat step 5
-      as non-optional.
+      An entry that still lists this change in `pending_changes` after archive
+      is the exact failure this workflow exists to prevent.
     requires:
       - tasks
 apply:
@@ -663,30 +348,19 @@ apply:
     Read the context files, work through pending tasks, mark each complete as you
     go.
 
-    Read the durable OKF entries first. okf-link.md is only a pointer table -
-    follow every path in it and read `.okf/features/<capability>.md` itself. Those
-    entries, together with the specs, are the source of truth for what to build.
-    Conversation history is not: if chat and the OKF entry disagree, the entry
-    wins until it is deliberately amended.
+    Read the OKF entries first - follow every path in okf-link.md. Those entries
+    and the specs are the source of truth. If chat and an entry disagree, the
+    entry wins until it is deliberately amended.
 
-    Do not implement before test-cases.md and test-plan.md exist and okf-link.md
-    points at real entries. Both are hard prerequisites of this schema, not
-    suggestions.
-
-    Respect the task group order. Contract stubs contain no logic - only
-    signatures and `throw new Error('not implemented')`. Unit tests for business
-    rules must be executable and failing on their assertion before the
-    corresponding implementation task begins.
+    Respect the task group order. Contract stubs contain no logic. Unit tests for
+    business rules fail on their assertion before the implementation task that
+    covers them begins.
 
     When implementation reveals that a business rule must be different, STOP.
     Do not adjust the test and do not quietly diverge:
       1. Amend `.okf/features/<capability>.md` (new or corrected `BR-n`).
-      2. Update the spec that cites it - use openspec-update-change to keep the
-         change's artifacts coherent.
-      3. Record the reason in test-plan.md under "Test Changes After
-         Implementation Started".
+      2. Update the spec that cites it - use openspec-update-change.
+      3. Record the reason in test-plan.md under Test Changes.
       4. Then change the test, then the code.
-    A pre-written test may otherwise change only when it has a mechanical bug
-    (wrong fixture, typo, bad assertion syntax).
 
     Pause if you hit blockers or need clarification.

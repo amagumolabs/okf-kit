@@ -1,242 +1,47 @@
 # Verification
 
-<!--
-Fill this before archive. Record actual evidence, not intended commands. If a
-check was not run, say so and explain the risk.
--->
+<!-- Record what actually ran and its real result. If a check was not run, say so and why. -->
 
-# Summary
-
-| Area | Status | Notes |
-| --- | --- | --- |
-| OpenSpec validation | not run |  |
-| Unit tests | not run |  |
-| Integration tests | not run |  |
-| API E2E tests | not run |  |
-| Browser E2E tests | not run |  |
-| Static analysis | not run |  |
-| OKF verification | not run |  |
-| OKF validation (`okf check`) | not run |  |
-| Archive readiness | not ready |  |
-
-# OpenSpec Validation
-
-Command:
-
-    openspec validate <change-id> --strict
-
-Result:
-
-<!-- Paste or summarize the actual result. -->
-
-## Synced Capability Specs
-
-<!--
-A change can be valid while the baseline spec assembled from it is not: a delta
-spec needs neither `## Purpose` nor `## Requirements`, and a baseline spec is
-rejected without them. Validate every capability this change touches, or the
-broken file stays behind after the change directory is archived.
--->
-
-| Capability | Command | Result |
-| --- | --- | --- |
-| <capability-name> | `openspec validate <capability-name> --strict` |  |
-
-# Unit Tests
-
-Command:
-
-    <unit-test-command>
-
-Result:
-
-<!-- Paste or summarize the actual result. -->
-
-# Integration Tests
-
-Command:
-
-    <integration-test-command>
-
-Result:
-
-<!-- Paste or summarize the actual result. -->
-
-# API E2E Tests
-
-Command:
-
-    <api-e2e-test-command>
-
-Result:
-
-<!-- Paste or summarize the actual result, or explain why API E2E is not applicable. -->
-
-# Browser E2E Tests
-
-Command:
-
-    <browser-e2e-test-command>
-
-Result:
-
-<!--
-Paste or summarize the actual result, or explain why browser E2E is not
-applicable.
-
-One row per render state the change has an interface for. Artifacts records
-where a screenshot, recording, or captured page actually landed - a path, a CI
-artefact name, a run URL. The plan said where it would go; this says where it
-is. A run that produced nothing writes `-`.
-
-Delete the table entirely when the change has no user interface, and say so in
-the Result above.
--->
-
-| Render State Or Scenario | Result | Artifacts |
-| --- | --- | --- |
-
-# Static Analysis
-
-<!--
-ENFORCED by `okf check --archive`, which reads the Result column. Tests and
-static analysis fail on disjoint defect classes: a test fails on behavior it
-observed, a type checker on a branch no test ever reached. A green suite is
-therefore not evidence that the code lints or type-checks.
-
-Lint and Typecheck are required rows. A project that runs neither keeps the row
-and answers `Not Applicable because <specific reason>` - a deleted row reads the
-same as an oversight, which is the distinction every escape hatch here exists to
-preserve. Further rows (Build, Format, a security scan) are welcome and
-unconstrained.
-
-Check names the category, Command names what this project actually runs. The
-category is what the gate matches, so the row survives changing one tool for
-another. Take the commands from the project's own declaration in `AGENTS.md`,
-outside the okf-kit markers.
-
-The kit reads what you report here and never runs it. That is a deliberate
-boundary, not an oversight: a validator that executes commands out of whatever
-repository it is pointed at is a different kind of tool, and CI already runs
-them. What this table buys is that the claim is written where a reviewer can
-compare it against CI.
--->
+# Results
 
 | Check | Command | Result |
 | --- | --- | --- |
+| OpenSpec validation | `openspec validate <change-id>` |  |
+| Unit tests | `<test-command>` |  |
+| Integration / E2E tests | `<test-command>` |  |
 | Lint | `<lint-command>` |  |
-| Typecheck | `<typecheck-command>` |  |
-
-# OKF Validation
-
-Command:
-
-    okf check --archive <change-id>
-
-Result:
-
-<!-- Paste the actual output. Fix what it reports; do not explain it away. -->
-
-# Test Traceability Review
-
-| Requirement Or Scenario | Covered By | Gap |
-| --- | --- | --- |
 
 # OKF Verification
-
-<!--
-The mandatory OKF pass before archive. The entries already exist (see
-okf-link.md) and were enriched during propose; this step re-checks them against
-the code that was actually written, and sets their final state in the `.okf`
-files themselves - never in a copy, never in this change directory.
-
-A checkbox is not evidence. Fill the table below with real references: a
-`path/to/file.ts:120`, or the name of the test that protects the rule. The agent
-that wrote the implementation is not a neutral judge of it, so the requirement
-here is to go and look at the code, not to recall what was intended.
--->
 
 ## Rule Evidence
 
 <!--
-One row per BR-n in every linked entry that this change touches. Verdict values:
-
+One row per BR-n this change touches. Verdicts:
 - `match`    - code does what the rule says
-- `okf-gap`  - OKF was missing or stale, code is right and its intent is clear
-               -> the OKF entry was updated (say what changed)
-- `code-gap` - OKF is right, code is wrong or incomplete -> a defect. Do NOT
-               "fix" this by editing OKF; record it under Known Gaps and fix the
-               code
-- `conflict` - genuine semantic disagreement, or a fix that would change domain
-               meaning for other features -> a human decides. Only this verdict
-               may end in `needs-revision`
+- `okf-gap`  - entry was stale, code is right -> entry updated (say what changed)
+- `code-gap` - entry is right, code is wrong -> code fixed; never edit the entry to match a bug
+- `conflict` - a human decides; only this may end in `needs-revision`
 -->
 
 | Rule (BR-n) | Capability | Evidence (file:line or test name) | Verdict | Action Taken |
 | --- | --- | --- | --- | --- |
 
-## Section Review
-
-| Section | Capability | Checked Against | Result |
-| --- | --- | --- | --- |
-| Domain Terms |  |  |  |
-| Data Entities |  |  |  |
-| Permissions And Access Control |  |  |  |
-| Workflows |  |  |  |
-
-## Entry Outcome
-
-<!-- One row per capability in okf-link.md. `pending_changes` must no longer contain this change id. -->
-
-| Capability | OKF File | Resulting Verified | verified_at | code_paths Filled | This Change Removed From pending_changes |
-| --- | --- | --- | --- | --- | --- |
-
 ## Decision Promotion
 
-<!--
-If design.md holds a decision that outlives this change, copy it to
-`.okf/decisions/<YYYY-MM-DD>-<slug>.md` now - archiving buries design.md under
-`openspec/changes/archive/` where nobody will find it.
+<!-- Each decision in design.md: a path under `.okf/decisions/`, or why it is change-local. Delete this section if design.md is "Not required because ...". -->
 
-This table is enforced by `okf check --archive`. Each row answers with exactly one
-of two things:
-
-- **Promoted To**: a path under `.okf/decisions/` that resolves on disk. A path
-  anywhere else, or one that does not exist, is an error - a decision filed
-  somewhere else is buried just the same.
-- **Reason If Not Promoted**: why the decision is change-local, i.e. it only
-  governed how this change was carried out and means nothing after archive.
-
-Write `-` in the column you are not using. A row with neither is an error, and so
-is an empty table while design.md has a Decisions section. Only design.md's
-one-line `Not required because <reason>.` form waives this table.
-
-Fewer rows than design.md has decisions is a warning, because counting them is a
-heuristic. It is a prompt to name what you left out, not a quota - do not invent
-rows to silence it.
--->
-
-| Decision | Promoted To | Reason If Not Promoted |
-| --- | --- | --- |
+| Decision | Promoted To Or Reason Not Promoted |
+| --- | --- |
 
 # Known Gaps And Accepted Risks
 
-| Gap Or Risk | Impact | Owner | Follow-Up |
-| --- | --- | --- | --- |
+| Gap Or Risk | Owner | Follow-Up |
+| --- | --- | --- |
 
 # Archive Readiness
 
-- [ ] OpenSpec validation passed for the change
-- [ ] `openspec validate <capability> --strict` passed for every spec synced into `openspec/specs/`
-- [ ] Tasks complete, or remaining items explicitly deferred
-- [ ] Unit test result recorded
-- [ ] Integration test result recorded
-- [ ] E2E result recorded, or marked not applicable with a specific reason
-- [ ] Static Analysis table filled: a real result per required row, or a stated reason (enforced - see Static Analysis above)
-- [ ] Every `skeleton` / `planned` test row appears in the test-plan Known Gaps with an owner
-- [ ] Rule Evidence table filled with real `file:line` or test references for every BR-n touched
-- [ ] Every linked entry: `verified` set, `verified_at` set, `code_paths` filled, this change id removed from `pending_changes`
-- [ ] `needs-revision` entries (if any) recorded in the `.okf/index.md` Needs Revision Ledger
-- [ ] Durable decisions promoted to `.okf/decisions/`, or explicitly skipped with a reason (enforced - see Decision Promotion above)
-- [ ] `okf check --archive <change-id>` exits clean
-- [ ] Proof boundaries are honest and explicit
+- [ ] Tests and OpenSpec validation pass, or failures are explained above
+- [ ] Every `skeleton` / `planned` test is in test-plan Known Gaps with an owner
+- [ ] Every BR-n touched has evidence and a verdict
+- [ ] Every linked entry: `verification_state` and `verified_at` set, `code_paths` filled, this change removed from `pending_changes`
+- [ ] Durable decisions promoted, `.okf/index.md` updated, AGENTS.md self-check done

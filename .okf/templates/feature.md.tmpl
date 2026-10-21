@@ -29,7 +29,7 @@ HOW TO USE THIS TEMPLATE
 2. DELETE every section you have no real content for. Never leave an empty table
    row, a bare `-`, or a `<placeholder>` behind. An empty section makes this file
    look like it holds knowledge when it does not, which is worse than not having
-   the section at all. `okf check` fails on leftover placeholders.
+   the section at all.
 
 3. Business rules carry stable IDs (`BR-1`, `BR-2`, ...). These IDs are quoted
    from OpenSpec specs, test cases, and verification evidence, so:
@@ -42,12 +42,8 @@ HOW TO USE THIS TEMPLATE
 
 4. Frontmatter meaning:
    - `status`: `draft` | `stable` | `deprecated` (the specification's vocabulary)
-   - `verification_state`: `unverified` | `verified` | `needs-revision`. This is the
-     kit's workflow gate. It is deliberately NOT the specification's `verified`
-     key, which a consumer reads as an attestation list.
-   - `verified`: written only by the verification pass - a list of `{by, at}`
-     recording who vouches for the CURRENT content. Absent while the entry is
-     `unverified` or `needs-revision`. Replaced, never appended across changes.
+   - `verification_state`: `unverified` | `verified` | `needs-revision`. Only the
+     verification pass, or a Rule tweak (see AGENTS.md), moves it.
    - `verified_at`: date of the last successful verification pass
    - `criticality`: `normal` | `high`. Use `high` for auth, permissions, money,
      or customer data. A `high` entry must be verified with fresh context (an

@@ -1,263 +1,77 @@
 # Workflow at a Glance
 
-How an OpenSpec change and an OKF knowledge entry move together, end to end.
-
-This page is the map, not the manual. It shows *where* each file is written and
-*what* the next step reads. For the mechanics — what `okf check` enforces, the
-test vocabulary, the known limitations — read
-[`openspec-okf-workflow.md`](./openspec-okf-workflow.md).
-
----
+The map, not the manual. The rules themselves live in `AGENTS.md` and in the
+`okf-gated-feature` schema.
 
 ## The one idea
 
-Two files, two lifetimes:
-
-| | Lives in | Lifetime |
+| Layer | Lives in | Lifetime |
 | --- | --- | --- |
-| **A change** — proposal, specs, tasks | `openspec/changes/<change-id>/` | Ends at archive |
-| **The knowledge** — terms, actors, `BR-n` rules | `.okf/features/<capability>.md` | Permanent, edited in place |
+| **Knowledge** - terms, actors, `BR-n` rules | `.okf/features/<capability>.md` | Permanent, edited in place |
+| **Requirements** - requirements, scenarios | `openspec/specs/<capability>/spec.md` | Permanent, changed through deltas |
+| **A change** - proposal, delta specs, tests plan, tasks | `openspec/changes/<change-id>/` | Ends at archive |
 
-Everything below is one sentence repeated: **the change points at the knowledge,
-it never copies it.** A rule is written once, gets a stable id (`BR-1`), and
-specs, tests and evidence all quote that id.
+A rule is written once, in the knowledge entry, with a stable id. Specs, tests,
+commits and verification evidence quote the id, never the wording.
 
----
-
-## First, the problem: OpenSpec + OKF used free-form
-
-Both tools work without the kit. Nothing stops a team from running OpenSpec and
-keeping `.okf/` files by hand. What is missing is that **every arrow between
-them is a habit, not a rule** — so the knowledge leaks out at each hand-off.
+## Every request starts with a route
 
 ```mermaid
 flowchart TD
-    CHAT["Chat / ticket"]
-    OKF[(".okf entry<br/><i>if it exists at all</i>")]
-    SPEC["OpenSpec specs"]
-    IMPL["Implementation"]
-    TEST(["Tests written after the code<br/>→ can no longer refute it"])
-    ARC["Archive = move the folder"]
-    DRIFT(["One rule, two copies<br/>→ silent drift"])
-    STALE(["Entry left unverified<br/>→ nobody knows what is true"])
+    R["Request"] --> L["Locate the capability<br/>read its entry, name the BR-n"]
+    L --> Q{"Does the entry or a spec<br/>have to say something different?"}
+    Q -- "no, behavior unchanged" --> D["<b>Direct</b><br/>edit the code"]
+    Q -- "no, code breaks a stated BR-n" --> F["<b>Quick fix</b><br/>failing test first, then fix"]
+    Q -- "yes, one existing BR-n,<br/>not high criticality" --> T["<b>Rule tweak</b><br/>entry → spec → failing test → code"]
+    Q -- "yes, anything else" --> X["<b>Full</b><br/>explore? → propose → apply → verify → archive"]
 
-    CHAT -. "if someone remembers" .-> OKF
-    CHAT --> SPEC
-    CHAT ==>|"the real source of truth"| IMPL
-    SPEC --> IMPL
-    OKF -. "optional to read" .-> IMPL
-    OKF -- "the rule" --> DRIFT
-    SPEC -- "its copy" --> DRIFT
-    IMPL --> TEST
-    IMPL --> ARC
-    ARC -. "nobody updates it<br/>on the way out" .-> OKF
-    ARC --> STALE
-
-    classDef leak fill:#f6e2e2,stroke:#a33,color:#3a1414
-    classDef okf fill:#f7ecd9,stroke:#9c6b1f,color:#3a2b0f
-    class TEST,DRIFT,STALE leak
-    class OKF okf
+    classDef full fill:#f7ecd9,stroke:#9c6b1f,color:#3a2b0f,stroke-width:2px
+    class X full
 ```
 
-Read the line types: the **solid** path is what always happens, the **dotted**
-ones are what someone has to remember. The failure is not carelessness — it is
-that no step *fails* when a dotted arrow is skipped. The change still proposes,
-the code still ships, the folder still archives. The gap only surfaces months
-later, when nobody can say whether a rule in `.okf/` is still true.
+Ties go to the heavier route. A short route that stops fitting - an existing
+assertion has to change, the entry is silent, the diff reaches another
+capability - escalates on the spot.
 
-### What the kit turns each leak into
-
-| Free-form leak | With okf-kit |
-| --- | --- |
-| Nobody creates the entry | `okf-link` is a prerequisite of propose; apply is **blocked** until it exists |
-| Rule text copied into specs | One `BR-n` id space — specs cite the id, never the text |
-| Implementation reads the chat | The schema tells apply to read the linked entries **ahead of chat history** |
-| Tests written after the code | `test-plan` gate + a status vocabulary + a recorded falsifier per test |
-| Archive with unverified knowledge | `okf check --archive` refuses to archive it |
-| Decisions buried in `design.md` | Promoted into `.okf/decisions/`, and the promotion is checked |
-| Knowledge silently going stale | `okf audit` compares `git log` on `code_paths` against `verified_at` |
-| Custom instructions in skill files | Behavior lives in the schema + marker block, which survive `openspec update` |
-| Each repo hand-copies the conventions | `okf init` / `okf upgrade` — one workflow, upgradable |
-
-The rest of this page is the same six steps as above, with the dotted arrows
-turned into required ones.
-
----
-
-## The main flow
-
-```mermaid
-flowchart TD
-    E["<b>1. Explore</b><br/>freeform thinking"]
-    Q{"A concrete capability?<br/>Ask: save to OKF?"}
-    OKF[("<b>.okf/features/&lt;capability&gt;.md</b><br/>unverified")]
-
-    P["<b>2. Propose</b><br/>okf-link · proposal · specs<br/>design · test-cases · test-plan · tasks"]
-    G{"<b>3. Gate</b><br/>okf-link + test-plan + tasks<br/>all exist?"}
-    A["<b>4. Apply</b><br/>stubs → tests fail red → implement"]
-    V["<b>5. Verify</b><br/>BR-n → file:line evidence"]
-    R["<b>6. Archive</b><br/>okf check --archive"]
-
-    E --> Q
-    Q -- "yes" --> OKF
-    Q -- "not yet" --> E
-    Q -. "no domain knowledge<br/>(tooling, build)" .-> P
-
-    OKF --> P
-    P -. "no entry yet?<br/>propose creates one" .-> OKF
-    P --> G
-    G -- "missing" --> P
-    G -- "open" --> A
-    OKF ==>|"read as source of truth,<br/><b>ahead of chat history</b>"| A
-    A -. "a rule turned out wrong?<br/>amend OKF + spec FIRST" .-> OKF
-    A --> V
-    V ==>|"verified · verified_at · code_paths<br/>pending_changes cleared"| OKF
-    V --> R
-
-    classDef okf fill:#f7ecd9,stroke:#9c6b1f,color:#3a2b0f,stroke-width:2px
-    classDef gate fill:#e8eef5,stroke:#2c5f8a,color:#173349,stroke-width:2px
-    class OKF okf
-    class G gate
-```
-
-Read the thick arrows first — they are the whole point:
-
-- **Into apply.** The implementer reads the OKF entry, not the chat transcript.
-  Chat is lost on the next session; the entry is not.
-- **Out of verify.** `verified` only ever moves in one place: the verification
-  pass, and only with a `file:line` behind each rule.
-
----
-
-## Step by step
-
-| # | Step | Writes | Reads |
-| --- | --- | --- | --- |
-| 1 | **Explore** *(optional)* | Offers to create the entry as `unverified` — never silently | The conversation |
-| 2 | **Propose** | `okf-link.md` (pointer table) + all change artifacts; enriches or creates the entry | **The OKF entry**, the request |
-| 3 | **Gate** | — | Existence of `okf-link` + `test-plan` + `tasks` |
-| 4 | **Apply** | Code and tests, test-first | **The OKF entry** and the specs |
-| 5 | **Verify** | `verification.md` evidence; updates entry frontmatter; promotes decisions to `.okf/decisions/` | Code, entry, `design.md` |
-| 6 | **Archive** | Moves the change to `archive/` | `okf check --archive` |
-
-```bash
-npx okf check                        # during and after propose / apply
-npx okf index                        # after verify updates frontmatter
-npx okf check --archive <change-id>  # before archive
-npx okf audit                        # periodically: drift since verified_at
-```
-
----
-
-## Where the two sides are wired together
-
-Only two threads connect a change to the knowledge base. Nothing else is copied.
+## The full route
 
 ```mermaid
 flowchart LR
-    subgraph CH["openspec/changes/&lt;change-id&gt;/"]
-        L["okf-link.md<br/><i>one row per capability</i>"]
-        S["specs/**<br/><i>Implements: BR-3</i>"]
-        V["verification.md<br/><i>BR-3 → auth.ts:42</i>"]
-    end
-
-    subgraph KB[".okf/"]
-        F[("features/user-auth.md<br/><b>BR-1 … BR-n</b>")]
-        D["decisions/"]
-        I["index.md · log.md<br/><i>generated</i>"]
-    end
-
-    L -- "points at the file" --> F
-    S -- "quotes the rule id" --> F
-    V -- "proves the rule id" --> F
-    F --> I
-    D --> I
-
-    classDef okf fill:#f7ecd9,stroke:#9c6b1f,color:#3a2b0f,stroke-width:2px
-    class F okf
+    OL["okf-link<br/>entry created or enriched"] --> P["proposal"] --> S["specs<br/>Implements: BR-n"]
+    P --> DS["design"]
+    S --> TC["test-cases"] --> TP["test-plan<br/><b>gate</b>"]
+    DS --> TK["tasks"]
+    TP --> TK --> A["apply<br/>stubs → red tests → code"]
+    A --> V["verification<br/>BR-n → file:line"] --> AR["archive"]
+    V ==>|"verified · verified_at · code_paths<br/>pending_changes cleared"| OKF[(".okf entry")]
 ```
 
-- `okf-link.md` — the pointer table. Which capabilities does this change touch?
-- `Implements: BR-n` — the specs quote rule ids, never the rule text.
-- Rule Evidence — verification answers each cited `BR-n` with a real
-  `file:line` or test name.
-
-Naming keeps this from fragmenting: an entry is named after the **capability**,
-never the change. `add-user-auth`, `fix-auth-mfa` and `improve-login` all edit
-`user-auth.md`.
-
----
-
-## The entry's life
-
-```mermaid
-stateDiagram-v2
-    [*] --> unverified: explore or propose
-    unverified --> verified: verification pass, with evidence
-    unverified --> needs_revision: conflict nobody can settle
-    needs_revision --> verified: a human settles it
-    verified --> verified: a new change adds content
-
-    note right of verified
-        verified_at + code_paths filled.
-        pending_changes non-empty means
-        "trust this file, except the new part".
-    end note
-```
-
-An entry may stay `verified` while carrying a pending change — that is honest,
-not a loophole. `needs-revision` is tracked as debt in `.okf/index.md`.
-
----
+OpenSpec refuses `apply` until `okf-link`, `test-plan` and `tasks` exist. The
+verification pass is what moves an entry to `verified`, and only with evidence
+in the code behind each rule.
 
 ## When the entry and the code disagree
 
-This is the table worth memorising.
+| Verdict | Meaning | Action |
+| --- | --- | --- |
+| `match` | Code does what the rule says | Nothing |
+| `okf-gap` | Code right, entry stale | Update the entry |
+| `code-gap` | Entry right, code wrong | **Fix the code** - never sync the entry to a bug |
+| `conflict` | Genuine disagreement | Ask a human; `needs-revision` only if undecidable |
 
-```mermaid
-flowchart LR
-    D{"Entry vs code"}
-    D -- "match" --> M["Nothing to do"]
-    D -- "okf-gap<br/>code right, entry stale" --> O["Update the entry"]
-    D -- "code-gap<br/>entry right, code wrong" --> C["<b>Fix the code.</b><br/>Never sync the entry to a bug"]
-    D -- "conflict" --> H["Ask a human<br/>needs-revision only if undecidable"]
-
-    classDef warn fill:#f6e2e2,stroke:#a33,color:#3a1414,stroke-width:2px
-    class C warn
-```
-
-If every disagreement were resolved by editing the entry, the knowledge base
-would always agree with the code — including with every bug in it — and could
-never catch anything.
-
-**Order of repair when a rule turns out to be wrong:**
+Order of repair when a rule turns out wrong:
 
 ```text
-OKF entry  →  spec  →  test-plan row  →  test  →  code
+OKF entry  →  spec  →  test  →  code
 ```
 
-Reversing it lets the implementation define the domain.
+## What holds it together
 
----
+Nothing runs in CI. Three things do the work:
 
-## What is a hard gate, and what is not
-
-| Enforced mechanically | Left to review |
-| --- | --- |
-| The three files exist before implementation (OpenSpec CLI) | Whether a rule is written *well* |
-| Pointers resolve, no placeholders, ids unique, evidence present (`okf check`) | Whether the evidence actually proves the rule |
-| Nothing archives `unverified` or with placeholders (`okf check --archive`) | Whether the record is honest |
-
-The kit makes the record exist and be internally consistent. Reading `.okf/`
-diffs in code review is what makes it true.
-
----
-
-## Next
-
-| You want | Read |
-| --- | --- |
-| Gates, artifact graph, test vocabulary, limitations | [`openspec-okf-workflow.md`](./openspec-okf-workflow.md) |
-| What goes in an entry, frontmatter states | [`.okf/README.md`](../.okf/README.md) |
-| Install / upgrade the kit | [`README.md`](../README.md) |
-| Exact per-artifact instructions | `openspec/schemas/okf-gated-feature/schema.yaml` |
+- **OpenSpec's own gates** - `apply` needs the knowledge link and a test plan.
+- **The routes in `AGENTS.md`** - every request is placed before code is written,
+  and the route is stated in one line and in the commit message.
+- **Review** - a reviewer compares the stated route with the diff: Direct and
+  Quick fix leave `.okf/` alone, a Rule tweak changes exactly one `BR-n`, the
+  full route has a change directory.

@@ -1,51 +1,42 @@
 schema: okf-gated-feature
 
 context: |
-  All feature work follows the OKF + OpenSpec + test-first workflow, and the
-  `okf-gated-feature` schema is what carries it. A change created on another schema
-  gets none of that schema's artifacts - that is an opt-out, so say so when you make
-  it rather than letting the missing files pass as an oversight. The durable OKF
-  entry is owed either way: the knowledge outlives the change, and no schema owns it.
+  This repository keeps three layers of one feature in sync: the OKF entry
+  (.okf/features/<capability>.md - domain knowledge and business rules with stable
+  BR-n ids), the OpenSpec spec (openspec/specs/<capability>/spec.md - requirements
+  and scenarios that CITE BR-n ids instead of restating rules), and the code with
+  its tests.
 
-  Durable knowledge lives in exactly one place per capability:
-  .okf/features/<capability-name>.md - named after the capability, never after the change.
-  Never duplicate its content into a change directory; a change points at it via okf-link.md.
+  A change exists because the knowledge or a spec is changing. Requests that leave
+  both untouched take a shorter route defined in AGENTS.md (Direct, Quick fix, Rule
+  tweak); only a change created through OpenSpec carries these artifacts. A change
+  created on another schema gets none of okf-link, test-plan or verification - say
+  so when you do it. The OKF entry is owed either way.
 
-  Division of labour: OKF holds domain knowledge (terms, business rules with stable BR-n ids,
-  actors, permissions, entities, workflows). OpenSpec specs hold requirements and scenarios,
-  and CITE the BR-n ids instead of restating rules - two copies of one sentence drift, a citation cannot.
+  Durable knowledge lives in exactly one place per capability, named after the
+  capability, never after the change. A change points at it through okf-link.md and
+  never copies it.
 
-  Two of that schema's artifacts are mandatory gates, not suggestions: a test-plan must exist
-  before implementation, and an OKF entry (even if unverified) must exist before implementation.
+  Two prerequisites are hard gates: an OKF entry (even unverified) and a test-plan
+  must exist before implementation. Tests that cover new behavior are written and
+  seen failing before the code that makes them pass.
 
-  One meta-rule covers every escape hatch in it: never skip a file and never leave a
-  section blank - state a specific reason instead. test-plan says "Not Applicable because ...",
-  design says "Not required because ...", okf-link says "no domain knowledge - ...".
-  A reason that does not name what makes it true is not a reason.
+  Never skip a file or leave a section blank - state a specific reason instead:
+  test-plan says "Not Applicable because ...", design says "Not required because
+  ...", okf-link says "no domain knowledge - ...". A reason that does not name what
+  makes it true is not a reason.
 
-  Before creating any OKF entry, test file, or doc artifact, check whether a template already exists
-  (.okf/templates/, this schema's templates/, or an existing project convention) and follow it.
+  Before creating an OKF entry, test file or doc artifact, use the existing template
+  (.okf/templates/, this schema's templates/) or project convention.
 
-  `okf check` enforces the mechanical half of these rules and `okf index` regenerates .okf/index.md and .okf/log.md.
-  Run `okf check` after touching anything under .okf/, and `okf check --archive <change-id>` before archiving.
-  It is not advisory: fix what it reports rather than explaining it away.
-
-  Everything else - when to explore, how often to loop propose/update, how deep a design goes -
-  stays as flexible as the underlying OpenSpec skills already are.
-
-# Rules reach the agent in the same call as the schema's `instruction` for that
-# artifact, and the instruction already carries the whole procedure. A rule that
-# restates one is read twice and drifts in two places, so this block holds only
-# what the instruction does not say.
-#
-# The second filter is that rules are injected by artifact id, not by schema:
-# `proposal`, `specs`, `design` and `tasks` also reach a change created with
-# `--schema spec-driven`, where okf-link.md, test-plan.md and the test-first task
-# groups do not exist. A rule naming those files reads as an instruction to fill in
-# a file the change will never have. So what stays here must hold on any schema -
-# the schema-specific mechanics live in the schema, where the artifacts are real.
+# Rules are injected by artifact id, and also reach a change created with
+# `--schema spec-driven`, so they hold only what is true on any schema.
 rules:
-  design:
-    - 'Always create design.md, whatever the schema in play says about it being optional. If nothing warrants a design, its entire content is one line: "Not required because <specific reason>." - and "because it is small" is not a reason until it names what makes it small.'
   tasks:
     - Test tasks come before the implementation tasks they cover, and implementation is never the step that first creates a test file.
+
+# Read by the archive workflow from OpenSpec 1.7 on; older versions ignore it.
+operations:
+  archive:
+    guidance:
+      - "Before archiving a change that has okf-link.md, confirm the OKF verification pass in verification.md is done: every BR-n the change touches has file:line or test evidence and a verdict, every linked entry has verification_state and verified_at set, code_paths filled, and this change id removed from pending_changes. If it is not done, warn and get explicit confirmation before archiving."
